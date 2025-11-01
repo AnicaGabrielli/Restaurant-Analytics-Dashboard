@@ -1,4 +1,4 @@
-// ========== backend/services/FilterService.js ==========
+// ========== backend/services/FilterService.js - CORRIGIDO ==========
 /**
  * Serviço de construção dinâmica de filtros SQL
  * Suporta múltiplos filtros combinados com segurança
@@ -19,7 +19,7 @@ export class FilterService {
     }
 
     /**
-     * Constrói WHERE clause baseado em filtros
+     * Constrói WHERE clause baseado em filtros - CORRIGIDO
      * @param {Object} filters - Objeto com filtros
      * @returns {Object} {where: string, params: array}
      */
@@ -27,42 +27,62 @@ export class FilterService {
         const conditions = [];
         const params = [];
 
-        // Filtro de período
+        // Filtro de período customizado
         if (filters.startDate && filters.endDate) {
             conditions.push('created_at BETWEEN ? AND ?');
             params.push(filters.startDate, filters.endDate);
-        } else if (filters.period) {
+        } 
+        // Filtro de período predefinido
+        else if (filters.period) {
             const periodClause = this.buildPeriodClause(filters.period);
             if (periodClause) {
                 conditions.push(periodClause);
             }
         }
 
-        // Filtro de canais (múltipla seleção)
-        if (filters.channelIds && Array.isArray(filters.channelIds) && filters.channelIds.length > 0) {
-            const placeholders = filters.channelIds.map(() => '?').join(',');
-            conditions.push(`channel_id IN (${placeholders})`);
-            params.push(...filters.channelIds);
+        // Filtro de canais (múltipla seleção) - CORRIGIDO
+        if (filters.channelIds) {
+            const channelArray = Array.isArray(filters.channelIds) 
+                ? filters.channelIds 
+                : filters.channelIds.toString().split(',').map(id => parseInt(id.trim()));
+            
+            if (channelArray.length > 0 && channelArray[0] !== '') {
+                const placeholders = channelArray.map(() => '?').join(',');
+                conditions.push(`channel_id IN (${placeholders})`);
+                params.push(...channelArray);
+            }
         }
 
-        // Filtro de lojas (múltipla seleção)
-        if (filters.storeIds && Array.isArray(filters.storeIds) && filters.storeIds.length > 0) {
-            const placeholders = filters.storeIds.map(() => '?').join(',');
-            conditions.push(`store_id IN (${placeholders})`);
-            params.push(...filters.storeIds);
+        // Filtro de lojas (múltipla seleção) - CORRIGIDO
+        if (filters.storeIds) {
+            const storeArray = Array.isArray(filters.storeIds)
+                ? filters.storeIds
+                : filters.storeIds.toString().split(',').map(id => parseInt(id.trim()));
+            
+            if (storeArray.length > 0 && storeArray[0] !== '') {
+                const placeholders = storeArray.map(() => '?').join(',');
+                conditions.push(`store_id IN (${placeholders})`);
+                params.push(...storeArray);
+            }
         }
 
-        // Filtro de status
-        if (filters.status && Array.isArray(filters.status) && filters.status.length > 0) {
-            const placeholders = filters.status.map(() => '?').join(',');
-            conditions.push(`sale_status_desc IN (${placeholders})`);
-            params.push(...filters.status);
+        // Filtro de status - CORRIGIDO
+        if (filters.status) {
+            const statusArray = Array.isArray(filters.status)
+                ? filters.status
+                : filters.status.toString().split(',');
+            
+            if (statusArray.length > 0 && statusArray[0] !== '') {
+                const placeholders = statusArray.map(() => '?').join(',');
+                conditions.push(`sale_status_desc IN (${placeholders})`);
+                params.push(...statusArray);
+            }
         }
 
         // Filtro de categoria (produtos)
         if (filters.categoryId) {
             conditions.push('category_id = ?');
-            params.push(filters.categoryId);
+            params.push(parseInt(filters.categoryId));
         }
 
         // Filtro de valor mínimo
@@ -80,21 +100,11 @@ export class FilterService {
         // Filtro de cliente
         if (filters.customerId) {
             conditions.push('customer_id = ?');
-            params.push(filters.customerId);
+            params.push(parseInt(filters.customerId));
         }
 
-        // Busca textual (produtos, clientes)
-        if (filters.search) {
-            const searchTerm = `%${filters.search}%`;
-            if (filters.searchField === 'product') {
-                conditions.push('name LIKE ?');
-                params.push(searchTerm);
-            } else if (filters.searchField === 'customer') {
-                conditions.push('(customer_name LIKE ? OR email LIKE ?)');
-                params.push(searchTerm, searchTerm);
-            }
-        }
-
+        // Busca textual (produtos, clientes) - Removido daqui, tratado separadamente
+        
         const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
         
         return { where: whereClause, params };
@@ -102,7 +112,7 @@ export class FilterService {
 
     /**
      * Constrói cláusula de período predefinido
-     * @param {string} period - 'last7days', 'last30days', 'last90days', 'thisMonth', 'lastMonth'
+     * @param {string} period - 'last7days', 'last30days', etc
      * @returns {string} SQL condition
      */
     buildPeriodClause(period) {
@@ -155,7 +165,7 @@ export class FilterService {
     }
 
     /**
-     * Validação de filtros recebidos
+     * Validação de filtros recebidos - MELHORADO
      * @param {Object} filters - Filtros a validar
      * @returns {Object} Filtros validados
      */
@@ -166,14 +176,14 @@ export class FilterService {
         if (filters.startDate) {
             const date = new Date(filters.startDate);
             if (!isNaN(date.getTime())) {
-                validated.startDate = date.toISOString().split('T')[0];
+                validated.startDate = filters.startDate;
             }
         }
 
         if (filters.endDate) {
             const date = new Date(filters.endDate);
             if (!isNaN(date.getTime())) {
-                validated.endDate = date.toISOString().split('T')[0];
+                validated.endDate = filters.endDate;
             }
         }
 
@@ -182,7 +192,7 @@ export class FilterService {
             validated.period = filters.period;
         }
 
-        // Validar arrays de IDs
+        // Validar arrays de IDs - CORRIGIDO
         if (filters.channelIds) {
             validated.channelIds = this.validateIdArray(filters.channelIds);
         }
@@ -191,25 +201,34 @@ export class FilterService {
             validated.storeIds = this.validateIdArray(filters.storeIds);
         }
 
+        // Validar status - CORRIGIDO
         if (filters.status) {
-            validated.status = Array.isArray(filters.status) ? filters.status : [filters.status];
+            if (Array.isArray(filters.status)) {
+                validated.status = filters.status.filter(s => s !== '');
+            } else if (typeof filters.status === 'string' && filters.status !== '') {
+                validated.status = [filters.status];
+            }
         }
 
         // Validar números
         if (filters.categoryId) {
-            validated.categoryId = parseInt(filters.categoryId);
+            const id = parseInt(filters.categoryId);
+            if (!isNaN(id)) validated.categoryId = id;
         }
 
         if (filters.customerId) {
-            validated.customerId = parseInt(filters.customerId);
+            const id = parseInt(filters.customerId);
+            if (!isNaN(id)) validated.customerId = id;
         }
 
         if (filters.minAmount) {
-            validated.minAmount = parseFloat(filters.minAmount);
+            const amount = parseFloat(filters.minAmount);
+            if (!isNaN(amount)) validated.minAmount = amount;
         }
 
         if (filters.maxAmount) {
-            validated.maxAmount = parseFloat(filters.maxAmount);
+            const amount = parseFloat(filters.maxAmount);
+            if (!isNaN(amount)) validated.maxAmount = amount;
         }
 
         // Validar busca
@@ -222,14 +241,22 @@ export class FilterService {
     }
 
     /**
-     * Valida array de IDs
+     * Valida array de IDs - CORRIGIDO
      * @param {Array|string} ids - IDs a validar
      * @returns {Array} Array de IDs válidos
      */
     validateIdArray(ids) {
         if (!ids) return [];
         
-        const idsArray = Array.isArray(ids) ? ids : ids.split(',');
+        let idsArray;
+        if (Array.isArray(ids)) {
+            idsArray = ids;
+        } else if (typeof ids === 'string') {
+            idsArray = ids.split(',');
+        } else {
+            return [];
+        }
+        
         return idsArray
             .map(id => parseInt(id))
             .filter(id => !isNaN(id) && id > 0);
@@ -255,15 +282,18 @@ export class FilterService {
     }
 
     /**
-     * Constrói query completa para vendas com filtros
+     * Constrói query completa para vendas com filtros - CORRIGIDO
      * @param {Object} filters - Filtros validados
      * @param {Object} options - Opções de paginação e ordenação
      * @returns {Object} {sql, params}
      */
     buildSalesQuery(filters, options = {}) {
         const { where, params } = this.buildWhereClause(filters);
-        const orderClause = this.buildOrderClause('sales', options.sortBy, options.sortOrder);
+        const orderClause = this.buildOrderClause('sales', options.sortBy || 'created_at', options.sortOrder);
         const { limit } = this.buildLimitClause(options.page, options.limit);
+
+        // Qualifica created_at com alias de tabela
+        const qualifiedWhere = where.replace(/\bcreated_at\b/g, 's.created_at');
 
         const sql = `
             SELECT 
@@ -277,8 +307,8 @@ export class FilterService {
             LEFT JOIN customers c ON s.customer_id = c.id
             INNER JOIN channels ch ON s.channel_id = ch.id
             INNER JOIN stores st ON s.store_id = st.id
-            ${where}
-            ${orderClause}
+            ${qualifiedWhere}
+            ${orderClause.replace('created_at', 's.created_at')}
             ${limit}
         `;
 

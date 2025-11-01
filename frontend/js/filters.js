@@ -1,4 +1,4 @@
-// ========== frontend/js/filters.js ==========
+// ========== frontend/js/filters.js - MELHORADO ==========
 
 // Estado global de filtros
 const filterState = {
@@ -7,7 +7,7 @@ const filterState = {
     endDate: null,
     channelIds: [],
     storeIds: [],
-    status: ['COMPLETED'],
+    status: 'COMPLETED',
     categoryId: null,
     minAmount: null,
     maxAmount: null
@@ -49,7 +49,7 @@ async function initFilters() {
 function populateFilterSelects() {
     // Canais
     const channelsSelect = document.getElementById('filterChannels');
-    channelsSelect.innerHTML = '<option value="">Todos</option>';
+    channelsSelect.innerHTML = '';
     filterOptions.channels.forEach(channel => {
         const option = document.createElement('option');
         option.value = channel.id;
@@ -59,7 +59,7 @@ function populateFilterSelects() {
 
     // Lojas
     const storesSelect = document.getElementById('filterStores');
-    storesSelect.innerHTML = '<option value="">Todas</option>';
+    storesSelect.innerHTML = '';
     filterOptions.stores.forEach(store => {
         const option = document.createElement('option');
         option.value = store.id;
@@ -83,7 +83,7 @@ function handlePeriodChange(e) {
 }
 
 /**
- * Aplica filtros selecionados
+ * Aplica filtros selecionados - MELHORADO
  */
 async function applyFilters() {
     // Coleta valores dos filtros
@@ -93,21 +93,23 @@ async function applyFilters() {
     filterState.startDate = period === 'custom' ? document.getElementById('filterStartDate').value : null;
     filterState.endDate = period === 'custom' ? document.getElementById('filterEndDate').value : null;
     
-    // Canais (múltipla seleção)
+    // Canais (múltipla seleção) - CORRIGIDO
     const channelsSelect = document.getElementById('filterChannels');
     filterState.channelIds = Array.from(channelsSelect.selectedOptions)
-        .map(opt => opt.value)
-        .filter(v => v !== '');
+        .map(opt => parseInt(opt.value))
+        .filter(v => !isNaN(v));
     
-    // Lojas (múltipla seleção)
+    // Lojas (múltipla seleção) - CORRIGIDO
     const storesSelect = document.getElementById('filterStores');
     filterState.storeIds = Array.from(storesSelect.selectedOptions)
-        .map(opt => opt.value)
-        .filter(v => v !== '');
+        .map(opt => parseInt(opt.value))
+        .filter(v => !isNaN(v));
     
-    // Status
+    // Status - CORRIGIDO
     const status = document.getElementById('filterStatus').value;
-    filterState.status = status ? [status] : [];
+    filterState.status = status || 'COMPLETED';
+
+    console.log('Filtros aplicados:', filterState);
 
     // Atualiza badges de filtros ativos
     updateActiveFiltersBadges();
@@ -125,15 +127,15 @@ async function clearFilters() {
     filterState.endDate = null;
     filterState.channelIds = [];
     filterState.storeIds = [];
-    filterState.status = ['COMPLETED'];
+    filterState.status = 'COMPLETED';
     filterState.categoryId = null;
     filterState.minAmount = null;
     filterState.maxAmount = null;
 
     // Reseta selects
     document.getElementById('filterPeriod').value = 'last30days';
-    document.getElementById('filterChannels').value = '';
-    document.getElementById('filterStores').value = '';
+    document.getElementById('filterChannels').selectedIndex = -1;
+    document.getElementById('filterStores').selectedIndex = -1;
     document.getElementById('filterStatus').value = 'COMPLETED';
     document.getElementById('filterStartDate').value = '';
     document.getElementById('filterEndDate').value = '';
@@ -143,6 +145,8 @@ async function clearFilters() {
 
     // Limpa badges
     document.getElementById('activeFilters').innerHTML = '';
+
+    console.log('Filtros limpos');
 
     // Recarrega dashboard
     await refreshDashboard();
@@ -169,12 +173,14 @@ function updateActiveFiltersBadges() {
         };
         badges.push({
             label: 'Período',
-            value: periodLabels[filterState.period] || filterState.period
+            value: periodLabels[filterState.period] || filterState.period,
+            color: 'primary'
         });
     } else if (filterState.startDate && filterState.endDate) {
         badges.push({
             label: 'Período',
-            value: `${formatDate(filterState.startDate)} a ${formatDate(filterState.endDate)}`
+            value: `${formatDate(filterState.startDate)} a ${formatDate(filterState.endDate)}`,
+            color: 'primary'
         });
     }
 
@@ -186,41 +192,41 @@ function updateActiveFiltersBadges() {
             .join(', ');
         badges.push({
             label: 'Canais',
-            value: channelNames
+            value: `${filterState.channelIds.length} selecionado(s)`,
+            color: 'info'
         });
     }
 
     // Lojas
     if (filterState.storeIds.length > 0) {
-        const storeNames = filterState.storeIds
-            .map(id => filterOptions.stores.find(s => s.id == id)?.name)
-            .filter(Boolean)
-            .join(', ');
         badges.push({
             label: 'Lojas',
-            value: storeNames
+            value: `${filterState.storeIds.length} selecionada(s)`,
+            color: 'info'
         });
     }
 
     // Status
-    if (filterState.status.length > 0 && filterState.status[0] !== '') {
+    if (filterState.status && filterState.status !== '') {
+        const statusLabel = filterState.status === 'COMPLETED' ? 'Completo' : 'Cancelado';
         badges.push({
             label: 'Status',
-            value: filterState.status.join(', ')
+            value: statusLabel,
+            color: filterState.status === 'COMPLETED' ? 'success' : 'danger'
         });
     }
 
     // Renderiza badges
     if (badges.length > 0) {
         const badgesHTML = badges.map(badge => `
-            <span class="badge bg-primary me-2">
+            <span class="badge bg-${badge.color} me-2 mb-2">
                 <strong>${badge.label}:</strong> ${badge.value}
             </span>
         `).join('');
 
         container.innerHTML = `
-            <div class="d-flex align-items-center">
-                <small class="text-muted me-2"><strong>Filtros Ativos:</strong></small>
+            <div class="d-flex align-items-center flex-wrap">
+                <small class="text-muted me-2 mb-2"><strong>Filtros Ativos:</strong></small>
                 ${badgesHTML}
             </div>
         `;
@@ -228,7 +234,7 @@ function updateActiveFiltersBadges() {
 }
 
 /**
- * Constrói query string dos filtros
+ * Constrói query string dos filtros - CORRIGIDO
  */
 function buildFilterQueryString() {
     const params = new URLSearchParams();
@@ -243,13 +249,17 @@ function buildFilterQueryString() {
         params.append('endDate', filterState.endDate);
     }
     if (filterState.channelIds.length > 0) {
-        params.append('channelIds', filterState.channelIds.join(','));
+        filterState.channelIds.forEach(id => {
+            params.append('channelIds', id);
+        });
     }
     if (filterState.storeIds.length > 0) {
-        params.append('storeIds', filterState.storeIds.join(','));
+        filterState.storeIds.forEach(id => {
+            params.append('storeIds', id);
+        });
     }
-    if (filterState.status.length > 0 && filterState.status[0] !== '') {
-        params.append('status', filterState.status.join(','));
+    if (filterState.status && filterState.status !== '') {
+        params.append('status', filterState.status);
     }
     if (filterState.categoryId) {
         params.append('categoryId', filterState.categoryId);
@@ -289,9 +299,11 @@ async function performSearch() {
             displaySearchResults(result.data, searchType);
         } else {
             console.error('Erro na busca:', result.error);
+            alert('Erro na busca: ' + result.error);
         }
     } catch (error) {
         console.error('Erro de rede na busca:', error);
+        alert('Erro ao realizar busca. Verifique o console.');
     } finally {
         hideLoading();
     }
@@ -315,7 +327,7 @@ function displaySearchResults(data, searchType) {
 
         if (searchType === 'product') {
             tableHTML = `
-                <table class="table table-hover">
+                <table class="table table-hover table-sm">
                     <thead>
                         <tr>
                             <th>ID</th>
@@ -340,7 +352,7 @@ function displaySearchResults(data, searchType) {
             `;
         } else if (searchType === 'customer') {
             tableHTML = `
-                <table class="table table-hover">
+                <table class="table table-hover table-sm">
                     <thead>
                         <tr>
                             <th>ID</th>
@@ -365,7 +377,7 @@ function displaySearchResults(data, searchType) {
             `;
         } else if (searchType === 'sale') {
             tableHTML = `
-                <table class="table table-hover">
+                <table class="table table-hover table-sm">
                     <thead>
                         <tr>
                             <th>ID</th>
@@ -395,10 +407,12 @@ function displaySearchResults(data, searchType) {
         }
 
         resultsContainer.innerHTML = `
-            <div class="mb-2">
+            <div class="mb-3">
                 <strong>${data.length}</strong> resultado(s) encontrado(s)
             </div>
-            ${tableHTML}
+            <div class="table-responsive">
+                ${tableHTML}
+            </div>
         `;
     }
 
@@ -420,8 +434,7 @@ function handleSearchKeyup(e) {
  * Exporta dados filtrados
  */
 async function exportData(format) {
-    const exportType = confirm('Exportar Vendas? (OK = Sim, Cancelar = Outros)') ? 'sales' : 
-                       prompt('Digite o tipo: sales, products, customers, deliveries', 'sales');
+    const exportType = prompt('Digite o tipo de exportação:\n- sales\n- products\n- customers\n- deliveries', 'sales');
 
     if (!exportType) return;
 

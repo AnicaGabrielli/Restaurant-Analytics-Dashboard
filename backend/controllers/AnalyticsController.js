@@ -1,4 +1,4 @@
-// ========== backend/controllers/AnalyticsController.js ==========
+// ========== backend/controllers/AnalyticsController.js - CORRIGIDO ==========
 import analyticsService from '../services/AnalyticsService.js';
 import exportService from '../services/ExportService.js';
 import filterService from '../services/FilterService.js';
@@ -11,6 +11,8 @@ export class AnalyticsController {
     async getSalesAnalytics(req, res) {
         try {
             const filters = this.extractFilters(req.query);
+            console.log('[Sales Analytics] Filtros recebidos:', filters);
+            
             const data = await analyticsService.getSalesAnalytics(filters);
             
             res.json({
@@ -30,11 +32,12 @@ export class AnalyticsController {
 
     /**
      * GET /api/analytics/products
-     * Retorna análise de produtos com filtros
      */
     async getProductAnalytics(req, res) {
         try {
             const filters = this.extractFilters(req.query);
+            console.log('[Product Analytics] Filtros recebidos:', filters);
+            
             const data = await analyticsService.getProductAnalytics(filters);
             
             res.json({
@@ -46,18 +49,20 @@ export class AnalyticsController {
             console.error('Product analytics error:', error);
             res.status(500).json({
                 success: false,
-                error: 'Erro ao carregar análise de produtos'
+                error: 'Erro ao carregar análise de produtos',
+                message: error.message
             });
         }
     }
 
     /**
      * GET /api/analytics/customers
-     * Retorna análise de clientes com filtros
      */
     async getCustomerAnalytics(req, res) {
         try {
             const filters = this.extractFilters(req.query);
+            console.log('[Customer Analytics] Filtros recebidos:', filters);
+            
             const data = await analyticsService.getCustomerAnalytics(filters);
             
             res.json({
@@ -69,18 +74,20 @@ export class AnalyticsController {
             console.error('Customer analytics error:', error);
             res.status(500).json({
                 success: false,
-                error: 'Erro ao carregar análise de clientes'
+                error: 'Erro ao carregar análise de clientes',
+                message: error.message
             });
         }
     }
 
     /**
      * GET /api/analytics/delivery
-     * Retorna análise de entregas com filtros
      */
     async getDeliveryAnalytics(req, res) {
         try {
             const filters = this.extractFilters(req.query);
+            console.log('[Delivery Analytics] Filtros recebidos:', filters);
+            
             const data = await analyticsService.getDeliveryAnalytics(filters);
             
             res.json({
@@ -92,14 +99,14 @@ export class AnalyticsController {
             console.error('Delivery analytics error:', error);
             res.status(500).json({
                 success: false,
-                error: 'Erro ao carregar análise de entregas'
+                error: 'Erro ao carregar análise de entregas',
+                message: error.message
             });
         }
     }
 
     /**
      * GET /api/search
-     * Busca geral com paginação
      */
     async search(req, res) {
         try {
@@ -127,19 +134,21 @@ export class AnalyticsController {
             console.error('Search error:', error);
             res.status(500).json({
                 success: false,
-                error: 'Erro na busca'
+                error: 'Erro na busca',
+                message: error.message
             });
         }
     }
 
     /**
      * POST /api/export
-     * Exporta dados filtrados
      */
     async exportData(req, res) {
         try {
             const { type = 'sales', format = 'csv' } = req.body;
             const filters = this.extractFilters(req.body.filters || {});
+
+            console.log('[Export] Tipo:', type, 'Formato:', format, 'Filtros:', filters);
 
             // Busca dados com limite de exportação
             const data = await analyticsService.getExportData(type, filters, 10000);
@@ -201,7 +210,6 @@ export class AnalyticsController {
 
     /**
      * GET /api/filters/options
-     * Retorna opções disponíveis para filtros (lojas, canais, etc)
      */
     async getFilterOptions(req, res) {
         try {
@@ -237,14 +245,14 @@ export class AnalyticsController {
             console.error('Filter options error:', error);
             res.status(500).json({
                 success: false,
-                error: 'Erro ao carregar opções de filtro'
+                error: 'Erro ao carregar opções de filtro',
+                message: error.message
             });
         }
     }
 
     /**
      * POST /api/cache/clear
-     * Limpa cache (admin only)
      */
     async clearCache(req, res) {
         try {
@@ -266,7 +274,6 @@ export class AnalyticsController {
 
     /**
      * GET /api/stats/cache
-     * Retorna estatísticas de cache
      */
     async getCacheStats(req, res) {
         try {
@@ -287,17 +294,17 @@ export class AnalyticsController {
     }
 
     /**
-     * Extrai e valida filtros da requisição
+     * Extrai e valida filtros da requisição - MELHORADO
      * @private
      */
     extractFilters(query) {
-        return {
+        const filters = {
             period: query.period,
             startDate: query.startDate,
             endDate: query.endDate,
-            channelIds: query.channelIds,
-            storeIds: query.storeIds,
-            status: query.status,
+            channelIds: this.parseArrayParam(query.channelIds),
+            storeIds: this.parseArrayParam(query.storeIds),
+            status: query.status || 'COMPLETED',
             categoryId: query.categoryId,
             customerId: query.customerId,
             minAmount: query.minAmount,
@@ -305,6 +312,34 @@ export class AnalyticsController {
             search: query.search,
             searchField: query.searchField
         };
+
+        // Remove valores undefined/null
+        Object.keys(filters).forEach(key => {
+            if (filters[key] === undefined || filters[key] === null || filters[key] === '') {
+                delete filters[key];
+            }
+        });
+
+        return filterService.validateFilters(filters);
+    }
+
+    /**
+     * Parse parâmetros de array vindos da query string
+     * Trata múltiplos formatos: ?ids=1,2,3 ou ?ids=1&ids=2&ids=3
+     * @private
+     */
+    parseArrayParam(param) {
+        if (!param) return [];
+        
+        if (Array.isArray(param)) {
+            // Caso seja array direto (ex: ?ids=1&ids=2)
+            return param.map(id => parseInt(id)).filter(id => !isNaN(id));
+        } else if (typeof param === 'string') {
+            // Caso seja string separada por vírgulas (ex: ?ids=1,2,3)
+            return param.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
+        }
+        
+        return [];
     }
 }
 
