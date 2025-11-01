@@ -1,26 +1,17 @@
-// ========== backend/services/FilterService.js ==========
-// Construção dinâmica e segura de filtros SQL com validação
-
+// ========== backend/services/FilterService.js - COMPLETAMENTE CORRIGIDO ==========
 import Joi from 'joi';
 import logger from '../utils/logger.js';
 import { ValidationError } from '../utils/errorHandler.js';
 
-/**
- * Serviço de construção de filtros SQL dinâmicos
- */
 export class FilterService {
     constructor() {
-        // Schema de validação de filtros
         this.filterSchema = Joi.object({
-            // Período
             period: Joi.string().valid(
                 'last7days', 'last30days', 'last90days',
                 'thisMonth', 'lastMonth', 'thisYear', 'lastYear'
             ),
             startDate: Joi.date().iso(),
             endDate: Joi.date().iso().min(Joi.ref('startDate')),
-            
-            // IDs
             channelIds: Joi.alternatives().try(
                 Joi.array().items(Joi.number().integer().positive()),
                 Joi.number().integer().positive()
@@ -31,34 +22,21 @@ export class FilterService {
             ),
             categoryId: Joi.number().integer().positive(),
             customerId: Joi.number().integer().positive(),
-            
-            // Status
             status: Joi.alternatives().try(
                 Joi.string().valid('COMPLETED', 'CANCELLED', 'ALL'),
                 Joi.array().items(Joi.string().valid('COMPLETED', 'CANCELLED'))
             ),
-            
-            // Valores
             minAmount: Joi.number().min(0),
             maxAmount: Joi.number().min(Joi.ref('minAmount')),
-            
-            // Busca
             search: Joi.string().max(100),
             searchField: Joi.string().valid('product', 'customer', 'sale'),
-            
-            // Paginação
             page: Joi.number().integer().min(1).default(1),
             limit: Joi.number().integer().min(1).max(1000).default(50),
-            
-            // Ordenação
             sortBy: Joi.string(),
             sortOrder: Joi.string().valid('ASC', 'DESC').default('DESC')
-        }).oxor('period', 'startDate'); // Ou period OU startDate, não ambos
+        }).oxor('period', 'startDate');
     }
     
-    /**
-     * Valida e normaliza filtros
-     */
     validateFilters(filters) {
         const { error, value } = this.filterSchema.validate(filters, {
             stripUnknown: true,
@@ -75,7 +53,6 @@ export class FilterService {
             throw new ValidationError('Filtros inválidos', { details });
         }
         
-        // Normaliza arrays
         if (value.channelIds && !Array.isArray(value.channelIds)) {
             value.channelIds = [value.channelIds];
         }
@@ -92,14 +69,13 @@ export class FilterService {
     }
     
     /**
-     * Constrói WHERE clause com alias de tabela para evitar ambiguidade
-     * @param {Object} filters - Filtros validados
-     * @param {string} tableAlias - Alias da tabela (ex: 's' para sales)
-     * @returns {Object} {where: string, params: array}
+     * CORRIGIDO: Constrói WHERE clause com alias CORRETO
      */
-    buildWhereClause(filters, tableAlias = '') {
+    buildWhereClause(filters, tableAlias = 's') {
         const conditions = [];
         const params = [];
+        
+        // IMPORTANTE: Sempre usar alias em TODAS as colunas
         const prefix = tableAlias ? `${tableAlias}.` : '';
         
         // Status
@@ -141,7 +117,7 @@ export class FilterService {
             params.push(...filters.storeIds);
         }
         
-        // Categoria
+        // Categoria (para produtos)
         if (filters.categoryId) {
             conditions.push(`${prefix}category_id = ?`);
             params.push(filters.categoryId);
@@ -172,9 +148,6 @@ export class FilterService {
         return { where: whereClause, params };
     }
     
-    /**
-     * Constrói cláusula de período predefinido
-     */
     buildPeriodClause(period, prefix = '') {
         const col = `${prefix}created_at`;
         
@@ -192,11 +165,7 @@ export class FilterService {
         return periodMap[period] || null;
     }
     
-    /**
-     * Constrói cláusula ORDER BY segura
-     */
     buildOrderClause(allowedFields, sortBy, sortOrder = 'DESC', prefix = '') {
-        // Validação
         if (!allowedFields.includes(sortBy)) {
             sortBy = allowedFields[0] || 'id';
         }
@@ -207,9 +176,6 @@ export class FilterService {
         return `ORDER BY ${field} ${order}`;
     }
     
-    /**
-     * Constrói cláusula LIMIT e OFFSET seguros
-     */
     buildLimitClause(page = 1, limit = 50) {
         const maxLimit = 1000;
         const safeLimit = Math.min(Math.max(1, parseInt(limit) || 50), maxLimit);
@@ -224,9 +190,6 @@ export class FilterService {
         };
     }
     
-    /**
-     * Constrói cláusula de busca textual
-     */
     buildSearchClause(searchTerm, searchFields, prefix = '') {
         if (!searchTerm || searchTerm.length < 2) {
             return { clause: '', params: [] };
@@ -244,14 +207,9 @@ export class FilterService {
         };
     }
     
-    /**
-     * Gera chave de cache baseada em filtros
-     */
     generateCacheKey(prefix, filters) {
-        // Remove campos não relevantes para cache
         const { page, limit, ...relevantFilters } = filters;
         
-        // Ordena chaves para consistência
         const sortedKeys = Object.keys(relevantFilters).sort();
         const keyParts = sortedKeys.map(key => {
             const value = relevantFilters[key];
@@ -264,9 +222,6 @@ export class FilterService {
         return `${prefix}:${keyParts.join('|')}`;
     }
     
-    /**
-     * Extrai período anterior para comparações
-     */
     calculatePreviousPeriod(filters) {
         const previousFilters = { ...filters };
         
@@ -296,9 +251,6 @@ export class FilterService {
         return previousFilters;
     }
     
-    /**
-     * Constrói query completa de contagem
-     */
     buildCountQuery(table, filters, tableAlias = '') {
         const { where, params } = this.buildWhereClause(filters, tableAlias);
         const tableRef = tableAlias ? `${table} ${tableAlias}` : table;
@@ -309,9 +261,6 @@ export class FilterService {
         };
     }
     
-    /**
-     * Valida e sanitiza input de busca
-     */
     sanitizeSearchTerm(term) {
         if (!term || typeof term !== 'string') {
             return '';
@@ -320,7 +269,7 @@ export class FilterService {
         return term
             .trim()
             .substring(0, 100)
-            .replace(/[<>'"`;]/g, ''); // Remove caracteres perigosos
+            .replace(/[<>'"`;]/g, '');
     }
 }
 

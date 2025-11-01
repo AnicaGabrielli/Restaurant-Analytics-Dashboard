@@ -1,21 +1,15 @@
-// ========== backend/config/database.js - POOL OTIMIZADO ==========
+// ========== backend/config/database.js - COM LOG COMPLETO ==========
 import mysql from 'mysql2/promise';
 import config from './env.js';
 import logger from '../utils/logger.js';
 import { DatabaseError } from '../utils/errorHandler.js';
 
-/**
- * Classe de gerenciamento de banco de dados
- */
 class Database {
     constructor() {
         this.pool = null;
         this.isConnected = false;
     }
     
-    /**
-     * Cria connection pool
-     */
     async connect() {
         if (this.pool) {
             logger.debug('Pool já existente, retornando pool atual');
@@ -25,7 +19,6 @@ class Database {
         try {
             logger.info('🔄 Criando pool de conexões MySQL...');
 
-            // Cria pool (SEM acquireTimeout - não é suportado no mysql2)
             this.pool = mysql.createPool({
                 host: config.database.host,
                 user: config.database.user,
@@ -41,10 +34,7 @@ class Database {
                 connectTimeout: config.database.connectTimeout
             });
             
-            // Testa pool
             await this.testConnection();
-            
-            // Configura event handlers
             this.setupPoolHandlers();
             
             this.isConnected = true;
@@ -60,9 +50,6 @@ class Database {
         }
     }
     
-    /**
-     * Testa conexão com banco
-     */
     async testConnection() {
         try {
             const connection = await this.pool.getConnection();
@@ -75,9 +62,6 @@ class Database {
         }
     }
     
-    /**
-     * Configura handlers de eventos do pool
-     */
     setupPoolHandlers() {
         this.pool.on('acquire', (connection) => {
             logger.debug(`Conexão ${connection.threadId} adquirida`);
@@ -97,9 +81,6 @@ class Database {
         });
     }
     
-    /**
-     * Executa query com tratamento de erros
-     */
     async query(sql, params = []) {
         if (!this.pool) {
             await this.connect();
@@ -122,11 +103,25 @@ class Database {
             return results;
         } catch (error) {
             const duration = Date.now() - startTime;
-            logger.error(`Erro na query (${duration}ms):`, {
-                error: error.message,
+            
+            // LOG SUPER DETALHADO DO ERRO
+            console.error('\n❌❌❌ ERRO NA QUERY ❌❌❌');
+            console.error('Duração:', duration + 'ms');
+            console.error('Código:', error.code);
+            console.error('Mensagem:', error.message);
+            console.error('SQL State:', error.sqlState);
+            console.error('SQL Message:', error.sqlMessage);
+            console.error('\n📝 SQL COMPLETO:');
+            console.error(sql);
+            console.error('\n📊 PARAMS:');
+            console.error(params);
+            console.error('❌❌❌❌❌❌❌❌❌❌❌❌\n');
+            
+            logger.error(`Erro na query (${duration}ms):`, error, {
+                sql: sql.substring(0, 500),
+                params: params.length,
                 code: error.code,
-                sql: sql.substring(0, 200),
-                params: params.length
+                sqlMessage: error.sqlMessage
             });
             
             error.query = sql;
@@ -141,9 +136,6 @@ class Database {
         }
     }
     
-    /**
-     * Executa múltiplas queries em transação
-     */
     async transaction(callback) {
         if (!this.pool) {
             await this.connect();
@@ -170,9 +162,6 @@ class Database {
         }
     }
     
-    /**
-     * Verifica saúde da conexão
-     */
     async healthCheck() {
         try {
             const startTime = Date.now();
@@ -193,9 +182,6 @@ class Database {
         }
     }
     
-    /**
-     * Fecha pool gracefully
-     */
     async close() {
         if (this.pool) {
             try {
@@ -210,9 +196,6 @@ class Database {
         }
     }
     
-    /**
-     * Retorna estatísticas do pool
-     */
     getPoolStats() {
         if (!this.pool || !this.pool.pool) {
             return {
@@ -232,14 +215,10 @@ class Database {
     }
 }
 
-// Exporta instância única (Singleton)
 const database = new Database();
 
 export default database;
 
-/**
- * Hook para graceful shutdown
- */
 export const gracefulShutdown = async (signal) => {
     logger.info(`${signal} recebido. Encerrando conexões...`);
     try {
@@ -251,6 +230,5 @@ export const gracefulShutdown = async (signal) => {
     }
 };
 
-// Registra handlers de shutdown
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));

@@ -1,8 +1,7 @@
-// ========== frontend/js/dashboard.js - CARREGAMENTO OTIMIZADO ==========
+// ========== frontend/js/dashboard.js - CARREGAMENTO SEQUENCIAL OTIMIZADO ==========
 
 const API_BASE = '/api';
 
-// Utilitários
 const formatCurrency = (value) => {
     return new Intl.NumberFormat('pt-BR', {
         style: 'currency',
@@ -22,10 +21,13 @@ const hideLoading = () => {
     document.getElementById('loadingOverlay').classList.add('hidden');
 };
 
-// Carregar dados do dashboard com filtros
+// Delay helper para evitar esgotar pool
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+/**
+ * Carregar dados do dashboard com filtros
+ */
 async function loadDashboard() {
-    showLoading();
-    
     try {
         const queryString = buildFilterQueryString();
         const response = await fetch(`${API_BASE}/dashboard/overview?${queryString}`);
@@ -42,23 +44,18 @@ async function loadDashboard() {
     } catch (error) {
         console.error('Erro de rede:', error);
         showToast('Erro ao carregar dados. Verifique sua conexão.', 'danger');
-    } finally {
-        hideLoading();
     }
 }
 
-// Atualizar KPIs com crescimento
 function updateKPIs(data) {
     const { revenue, operationalMetrics, comparison } = data;
     
-    // KPIs principais
     document.getElementById('totalRevenue').textContent = formatCurrency(revenue.total_revenue);
     document.getElementById('totalSales').textContent = formatNumber(revenue.total_sales);
     document.getElementById('avgTicket').textContent = formatCurrency(revenue.avg_ticket);
     document.getElementById('avgProduction').textContent = 
         `${Math.round(operationalMetrics.production.avg_production_minutes || 0)} min`;
 
-    // Indicadores de crescimento
     if (comparison) {
         const revenueGrowth = parseFloat(comparison.growth);
         const salesGrowth = parseFloat(comparison.salesGrowth);
@@ -78,7 +75,6 @@ function updateKPIs(data) {
     }
 }
 
-// Atualizar comparação
 function updateComparison(comparison) {
     if (!comparison) return;
 
@@ -87,7 +83,6 @@ function updateComparison(comparison) {
     const icon = growth >= 0 ? 'graph-up-arrow' : 'graph-down-arrow';
     const color = growth >= 0 ? 'success' : 'danger';
 
-    // Cria barra de comparação se não existir
     let comparisonBar = document.getElementById('comparisonBar');
     if (!comparisonBar) {
         comparisonBar = document.createElement('div');
@@ -108,7 +103,6 @@ function updateComparison(comparison) {
     `;
 }
 
-// Atualizar gráficos principais
 function updateCharts(data) {
     chartManager.createSalesTrendChart('salesTrendChart', data.salesByPeriod);
     chartManager.createChannelChart('channelChart', data.salesByChannel);
@@ -116,7 +110,6 @@ function updateCharts(data) {
     chartManager.createTopItemsChart('topItemsChart', data.topItems);
 }
 
-// Carregar análises de vendas com filtros
 async function loadSalesAnalytics() {
     try {
         const queryString = buildFilterQueryString();
@@ -137,7 +130,6 @@ async function loadSalesAnalytics() {
     }
 }
 
-// Carregar análises de produtos com filtros
 async function loadProductAnalytics() {
     try {
         const queryString = buildFilterQueryString();
@@ -157,7 +149,6 @@ async function loadProductAnalytics() {
     }
 }
 
-// Carregar análises de clientes com filtros
 async function loadCustomerAnalytics() {
     try {
         const queryString = buildFilterQueryString();
@@ -170,7 +161,6 @@ async function loadCustomerAnalytics() {
             chartManager.createRetentionChart('retentionChart', retention);
             chartManager.createCustomerTypeChart('customerTypeChart', newVsReturning);
             
-            // Atualizar tabela
             updateTopCustomersTable(topCustomers);
         } else {
             console.error('Erro em customer analytics:', result.error);
@@ -180,7 +170,6 @@ async function loadCustomerAnalytics() {
     }
 }
 
-// Atualizar tabela de top clientes
 function updateTopCustomersTable(customers) {
     const tbody = document.querySelector('#topCustomersTable tbody');
     tbody.innerHTML = '';
@@ -204,7 +193,6 @@ function updateTopCustomersTable(customers) {
     });
 }
 
-// Carregar análises de delivery com filtros
 async function loadDeliveryAnalytics() {
     try {
         const queryString = buildFilterQueryString();
@@ -214,7 +202,6 @@ async function loadDeliveryAnalytics() {
         if (result.success) {
             const { byRegion, stats, topNeighborhoods } = result.data;
             
-            // Atualizar KPIs de delivery
             document.getElementById('totalDeliveries').textContent = formatNumber(stats.total_deliveries);
             
             const avgDeliveryMinutes = stats.avg_delivery_minutes || 0;
@@ -223,7 +210,6 @@ async function loadDeliveryAnalytics() {
             document.getElementById('avgDeliveryFee').textContent = formatCurrency(stats.avg_delivery_fee);
             document.getElementById('totalDeliveryRevenue').textContent = formatCurrency(stats.total_delivery_revenue);
             
-            // Gráficos
             chartManager.createTopNeighborhoodsChart('topNeighborhoodsChart', topNeighborhoods);
             chartManager.createDeliveryPerformanceChart('deliveryPerformanceChart', byRegion);
         } else {
@@ -234,7 +220,6 @@ async function loadDeliveryAnalytics() {
     }
 }
 
-// Carrega estatísticas de cache
 async function loadCacheStats() {
     try {
         const response = await fetch(`${API_BASE}/stats/cache`);
@@ -250,39 +235,33 @@ async function loadCacheStats() {
     }
 }
 
-// Refresh completo - CARREGAMENTO SEQUENCIAL para evitar esgotar pool
+/**
+ * CRÍTICO: Refresh com CARREGAMENTO SEQUENCIAL para evitar esgotar pool
+ */
 async function refreshDashboard() {
-    console.log('🔄 Iniciando refresh do dashboard...');
+    console.log('🔄 Iniciando refresh do dashboard (SEQUENCIAL)...');
     showLoading();
     
     try {
-        // Carrega dashboard principal primeiro
         console.log('📊 1/5 Carregando dashboard...');
         await loadDashboard();
+        await delay(200); // Delay para liberar conexões
         
-        // Pequeno delay para liberar conexões
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        // Carrega analytics sequencialmente
         console.log('📈 2/5 Carregando análise de vendas...');
         await loadSalesAnalytics();
-        
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await delay(200);
         
         console.log('📦 3/5 Carregando análise de produtos...');
         await loadProductAnalytics();
-        
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await delay(200);
         
         console.log('👥 4/5 Carregando análise de clientes...');
         await loadCustomerAnalytics();
-        
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await delay(200);
         
         console.log('🚚 5/5 Carregando análise de entregas...');
         await loadDeliveryAnalytics();
         
-        // Cache stats por último
         await loadCacheStats();
         
         console.log('✅ Dashboard carregado com sucesso!');
@@ -296,7 +275,6 @@ async function refreshDashboard() {
     }
 }
 
-// Toast helper
 function showToast(message, type = 'info') {
     document.querySelectorAll('.toast-notification').forEach(t => t.remove());
     
@@ -316,7 +294,6 @@ function showToast(message, type = 'info') {
     }, 3000);
 }
 
-// Smooth scroll para navegação
 document.querySelectorAll('a[href^="#"]').forEach(anchor => {
     anchor.addEventListener('click', function (e) {
         e.preventDefault();
@@ -334,7 +311,6 @@ document.querySelectorAll('a[href^="#"]').forEach(anchor => {
     });
 });
 
-// Atualiza link ativo na navegação
 window.addEventListener('scroll', () => {
     const sections = document.querySelectorAll('section[id]');
     const navLinks = document.querySelectorAll('.navbar-nav .nav-link');
@@ -356,31 +332,26 @@ window.addEventListener('scroll', () => {
     });
 });
 
-// Auto-refresh a cada 5 minutos
+// Auto-refresh a cada 10 minutos (aumentado de 5)
 let autoRefreshInterval = setInterval(() => {
     console.log('[Auto-refresh] Atualizando dashboard...');
     refreshDashboard();
-}, 300000); // 5 minutos
+}, 600000); // 10 minutos
 
-// Limpa interval ao sair da página
 window.addEventListener('beforeunload', () => {
     if (autoRefreshInterval) {
         clearInterval(autoRefreshInterval);
     }
 });
 
-// Inicializar ao carregar página
 document.addEventListener('DOMContentLoaded', () => {
     console.log('🚀 Inicializando dashboard...');
     
-    // Carrega dashboard inicial
     refreshDashboard();
     
-    // Atualiza stats de cache periodicamente
     setInterval(loadCacheStats, 60000); // 1 minuto
 });
 
-// Expõe funções globais necessárias
 window.refreshDashboard = refreshDashboard;
 window.applyFilters = applyFilters;
 window.clearFilters = clearFilters;

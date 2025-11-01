@@ -1,6 +1,4 @@
-// ========== backend/utils/logger.js ==========
-// Sistema centralizado de logging com Winston
-
+// ========== backend/utils/logger.js - COM DETALHES COMPLETOS ==========
 import winston from 'winston';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -10,25 +8,21 @@ import config from '../config/env.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Cria diretório de logs se não existir
 const logsDir = path.resolve(__dirname, '../../logs');
 if (!fs.existsSync(logsDir)) {
     fs.mkdirSync(logsDir, { recursive: true });
 }
 
-// Formato customizado para logs
 const customFormat = winston.format.combine(
     winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
     winston.format.errors({ stack: true }),
     winston.format.printf(({ timestamp, level, message, stack, ...meta }) => {
         let log = `[${timestamp}] ${level.toUpperCase()}: ${message}`;
         
-        // Adiciona metadata se existir
         if (Object.keys(meta).length > 0) {
             log += ` | ${JSON.stringify(meta)}`;
         }
         
-        // Adiciona stack trace para erros
         if (stack) {
             log += `\n${stack}`;
         }
@@ -37,7 +31,6 @@ const customFormat = winston.format.combine(
     })
 );
 
-// Formato colorido para console
 const consoleFormat = winston.format.combine(
     winston.format.colorize(),
     winston.format.timestamp({ format: 'HH:mm:ss' }),
@@ -46,10 +39,8 @@ const consoleFormat = winston.format.combine(
     })
 );
 
-// Transports
 const transports = [];
 
-// Console transport (sempre ativo)
 transports.push(
     new winston.transports.Console({
         format: consoleFormat,
@@ -57,20 +48,17 @@ transports.push(
     })
 );
 
-// File transport (se habilitado)
 if (config.logging.fileEnabled) {
-    // Arquivo geral
     transports.push(
         new winston.transports.File({
             filename: path.resolve(logsDir, 'app.log'),
             format: customFormat,
             level: config.logging.level,
-            maxsize: 5242880, // 5MB
+            maxsize: 5242880,
             maxFiles: 5
         })
     );
     
-    // Arquivo só de erros
     transports.push(
         new winston.transports.File({
             filename: path.resolve(logsDir, 'error.log'),
@@ -82,7 +70,6 @@ if (config.logging.fileEnabled) {
     );
 }
 
-// Cria logger
 const logger = winston.createLogger({
     level: config.logging.level,
     format: customFormat,
@@ -90,49 +77,47 @@ const logger = winston.createLogger({
     exitOnError: false
 });
 
-// Wrapper para facilitar uso
 class Logger {
-    /**
-     * Log de informação
-     */
     info(message, meta = {}) {
         logger.info(message, meta);
     }
     
-    /**
-     * Log de warning
-     */
     warn(message, meta = {}) {
         logger.warn(message, meta);
     }
     
-    /**
-     * Log de erro
-     */
     error(message, error = null, meta = {}) {
         if (error instanceof Error) {
+            // LOG COMPLETO DO ERRO SQL
             logger.error(message, {
-                error: error.message,
+                errorMessage: error.message,
+                errorCode: error.code,
+                errorErrno: error.errno,
+                errorSql: error.sql,
+                errorSqlMessage: error.sqlMessage,
                 stack: error.stack,
                 ...meta
             });
+            
+            // TAMBÉM NO CONSOLE
+            console.error('\n=== ERRO DETALHADO ===');
+            console.error('Mensagem:', error.message);
+            console.error('Código:', error.code);
+            console.error('SQL State:', error.sqlState);
+            console.error('SQL Message:', error.sqlMessage);
+            console.error('SQL:', error.sql);
+            console.error('========================\n');
         } else {
             logger.error(message, meta);
         }
     }
     
-    /**
-     * Log de debug (só em desenvolvimento)
-     */
     debug(message, meta = {}) {
         if (config.server.isDevelopment) {
             logger.debug(message, meta);
         }
     }
     
-    /**
-     * Log de requisição HTTP
-     */
     http(req, res, duration) {
         const message = `${req.method} ${req.originalUrl} - ${res.statusCode} - ${duration}ms`;
         
@@ -145,33 +130,27 @@ class Logger {
         }
     }
     
-    /**
-     * Log de query SQL (só em desenvolvimento)
-     */
     query(sql, params = [], duration = 0) {
         if (config.server.isDevelopment) {
             this.debug(`SQL Query (${duration}ms)`, {
-                sql: sql.substring(0, 200), // Limita tamanho
+                sql: sql.substring(0, 200),
                 params: params.length > 0 ? params : undefined
             });
         }
     }
     
-    /**
-     * Log de erro de banco de dados
-     */
     dbError(error, sql = '', params = []) {
+        // LOG SUPER DETALHADO
         this.error('Database Error', error, {
-            sql: sql.substring(0, 200),
+            sql: sql.substring(0, 500),
             params: params.length > 0 ? params : undefined,
             code: error.code,
-            errno: error.errno
+            errno: error.errno,
+            sqlState: error.sqlState,
+            sqlMessage: error.sqlMessage
         });
     }
     
-    /**
-     * Log de cache
-     */
     cache(action, key, hit = null) {
         if (config.server.isDevelopment) {
             const message = `Cache ${action}: ${key}`;
@@ -180,8 +159,5 @@ class Logger {
     }
 }
 
-// Exporta instância única
 export default new Logger();
-
-// Exporta logger Winston original para casos especiais
 export { logger as winstonLogger };

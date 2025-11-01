@@ -1,13 +1,28 @@
-// ========== backend/models/Customer.js - CORRIGIDO ==========
+// ========== backend/models/Customer.js - COMPLETAMENTE CORRIGIDO ==========
 import { BaseModel } from './BaseModel.js';
+
 export class Customer extends BaseModel {
     constructor() {
         super('customers');
     }
 
+    /**
+     * CORRIGIDO: Query de retenção com subquery correta
+     */
     async getCustomerRetention(filters = {}) {
         const { default: filterService } = await import('../services/FilterService.js');
-        const { where, params } = filterService.buildWhereClause(filters, 's');
+        
+        // Constrói WHERE para a subquery
+        let whereClause = '';
+        const params = [];
+        
+        if (filters.period || filters.startDate) {
+            const { where, params: filterParams } = filterService.buildWhereClause(filters, 's');
+            if (where) {
+                whereClause = where.replace('WHERE', 'AND');
+                params.push(...filterParams);
+            }
+        }
 
         const query = `
             SELECT 
@@ -26,7 +41,8 @@ export class Customer extends BaseModel {
                     COUNT(s.id) as purchase_count,
                     SUM(s.total_amount) as total_spent
                 FROM ${this.tableName} c
-                LEFT JOIN sales s ON c.id = s.customer_id ${where ? 'AND ' + where.replace('WHERE ', '') : ''}
+                LEFT JOIN sales s ON c.id = s.customer_id 
+                WHERE 1=1 ${whereClause}
                 GROUP BY c.id
             ) customer_stats
             GROUP BY segment
@@ -42,6 +58,9 @@ export class Customer extends BaseModel {
         return await this.query(query, params);
     }
 
+    /**
+     * CORRIGIDO: Top customers com alias correto
+     */
     async getTopCustomers(limit = 10, filters = {}) {
         const { default: filterService } = await import('../services/FilterService.js');
         const { where, params } = filterService.buildWhereClause(filters, 's');
@@ -65,9 +84,22 @@ export class Customer extends BaseModel {
         return await this.query(query, [...params, limit]);
     }
 
+    /**
+     * CORRIGIDO: Novos vs Recorrentes com subquery correta
+     */
     async getNewVsReturning(filters = {}) {
         const { default: filterService } = await import('../services/FilterService.js');
-        const { where, params } = filterService.buildWhereClause(filters, 's');
+        
+        let whereClause = '';
+        const params = [];
+        
+        if (filters.period || filters.startDate) {
+            const { where, params: filterParams } = filterService.buildWhereClause(filters, 's');
+            if (where) {
+                whereClause = where.replace('WHERE', 'AND');
+                params.push(...filterParams);
+            }
+        }
 
         const query = `
             SELECT 
@@ -80,7 +112,8 @@ export class Customer extends BaseModel {
                     COUNT(s.id) as purchase_count,
                     SUM(s.total_amount) as total_spent
                 FROM ${this.tableName} c
-                LEFT JOIN sales s ON c.id = s.customer_id ${where ? 'AND ' + where.replace('WHERE ', '') : ''}
+                LEFT JOIN sales s ON c.id = s.customer_id
+                WHERE 1=1 ${whereClause}
                 GROUP BY c.id
             ) customer_stats
             GROUP BY customer_type
@@ -89,9 +122,22 @@ export class Customer extends BaseModel {
         return await this.query(query, params);
     }
 
+    /**
+     * CORRIGIDO: Análise de LTV com subquery correta
+     */
     async getLifetimeValueAnalysis(filters = {}) {
         const { default: filterService } = await import('../services/FilterService.js');
-        const { where, params } = filterService.buildWhereClause(filters, 's');
+        
+        let whereClause = '';
+        const params = [];
+        
+        if (filters.period || filters.startDate) {
+            const { where, params: filterParams } = filterService.buildWhereClause(filters, 's');
+            if (where) {
+                whereClause = where.replace('WHERE', 'AND');
+                params.push(...filterParams);
+            }
+        }
 
         const query = `
             SELECT 
@@ -109,7 +155,8 @@ export class Customer extends BaseModel {
                     c.id,
                     SUM(s.total_amount) as total_spent
                 FROM ${this.tableName} c
-                LEFT JOIN sales s ON c.id = s.customer_id ${where ? 'AND ' + where.replace('WHERE ', '') : ''}
+                LEFT JOIN sales s ON c.id = s.customer_id
+                WHERE 1=1 ${whereClause}
                 GROUP BY c.id
             ) customer_ltv
             GROUP BY ltv_segment
@@ -119,6 +166,9 @@ export class Customer extends BaseModel {
         return await this.query(query, params);
     }
 
+    /**
+     * Clientes em risco de churn (sem filtros complexos)
+     */
     async getChurnRiskCustomers(filters = {}) {
         const query = `
             SELECT 
@@ -142,6 +192,9 @@ export class Customer extends BaseModel {
         return await this.query(query);
     }
 
+    /**
+     * CORRIGIDO: Busca de clientes
+     */
     async searchCustomers(searchTerm, filters = {}, page = 1, limit = 50) {
         const offset = (page - 1) * limit;
         const searchPattern = `%${searchTerm}%`;
