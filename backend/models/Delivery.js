@@ -7,16 +7,8 @@ export class Delivery extends BaseModel {
     }
 
     async getDeliveryPerformanceByRegion(filters = {}) {
-        let whereClause = 'WHERE s.sale_status_desc = "COMPLETED"';
-        let params = [];
-
-        if (filters.period === 'last7days') {
-            whereClause += ' AND s.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)';
-        } else if (filters.period === 'last90days') {
-            whereClause += ' AND s.created_at >= DATE_SUB(NOW(), INTERVAL 90 DAY)';
-        } else {
-            whereClause += ' AND s.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)';
-        }
+        const { default: filterService } = await import('../services/FilterService.js');
+        const { where, params } = filterService.buildWhereClause(filters, 's');
 
         const query = `
             SELECT 
@@ -28,8 +20,8 @@ export class Delivery extends BaseModel {
                 COALESCE(MAX(s.delivery_seconds / 60), 0) as max_delivery_minutes
             FROM sales s
             INNER JOIN delivery_addresses da ON s.id = da.sale_id
-            ${whereClause}
-                AND s.delivery_seconds IS NOT NULL
+            ${where}
+                ${where ? 'AND' : 'WHERE'} s.delivery_seconds IS NOT NULL
             GROUP BY da.city, da.neighborhood
             HAVING total_deliveries >= 5
             ORDER BY avg_delivery_minutes DESC
@@ -40,16 +32,8 @@ export class Delivery extends BaseModel {
     }
 
     async getDeliveryStats(filters = {}) {
-        let whereClause = 'WHERE s.sale_status_desc = "COMPLETED"';
-        let params = [];
-
-        if (filters.period === 'last7days') {
-            whereClause += ' AND s.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)';
-        } else if (filters.period === 'last90days') {
-            whereClause += ' AND s.created_at >= DATE_SUB(NOW(), INTERVAL 90 DAY)';
-        } else {
-            whereClause += ' AND s.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)';
-        }
+        const { default: filterService } = await import('../services/FilterService.js');
+        const { where, params } = filterService.buildWhereClause(filters, 's');
 
         const query = `
             SELECT 
@@ -60,8 +44,8 @@ export class Delivery extends BaseModel {
                 COALESCE(SUM(s.delivery_fee), 0) as total_delivery_revenue
             FROM sales s
             LEFT JOIN ${this.tableName} ds ON s.id = ds.sale_id
-            ${whereClause}
-                AND s.delivery_seconds IS NOT NULL
+            ${where}
+                ${where ? 'AND' : 'WHERE'} s.delivery_seconds IS NOT NULL
         `;
 
         const results = await this.query(query, params);
@@ -69,18 +53,9 @@ export class Delivery extends BaseModel {
     }
 
     async getTopDeliveryNeighborhoods(limit = 10, filters = {}) {
-        let whereClause = 'WHERE s.sale_status_desc = "COMPLETED"';
-        let params = [];
+        const { default: filterService } = await import('../services/FilterService.js');
+        const { where, params } = filterService.buildWhereClause(filters, 's');
 
-        if (filters.period === 'last7days') {
-            whereClause += ' AND s.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)';
-        } else if (filters.period === 'last90days') {
-            whereClause += ' AND s.created_at >= DATE_SUB(NOW(), INTERVAL 90 DAY)';
-        } else {
-            whereClause += ' AND s.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)';
-        }
-
-        // CORRIGIDO: LIMIT direto na query
         const query = `
             SELECT 
                 da.city,
@@ -89,26 +64,18 @@ export class Delivery extends BaseModel {
                 COALESCE(SUM(s.total_amount), 0) as total_revenue
             FROM delivery_addresses da
             INNER JOIN sales s ON da.sale_id = s.id
-            ${whereClause}
+            ${where}
             GROUP BY da.city, da.neighborhood
             ORDER BY delivery_count DESC
-            LIMIT ${parseInt(limit)}
+            LIMIT ?
         `;
 
-        return await this.query(query, params);
+        return await this.query(query, [...params, limit]);
     }
 
     async getPerformanceMetrics(filters = {}) {
-        let whereClause = 'WHERE s.sale_status_desc = "COMPLETED"';
-        let params = [];
-
-        if (filters.period === 'last7days') {
-            whereClause += ' AND s.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)';
-        } else if (filters.period === 'last90days') {
-            whereClause += ' AND s.created_at >= DATE_SUB(NOW(), INTERVAL 90 DAY)';
-        } else {
-            whereClause += ' AND s.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)';
-        }
+        const { default: filterService } = await import('../services/FilterService.js');
+        const { where, params } = filterService.buildWhereClause(filters, 's');
 
         const query = `
             SELECT 
@@ -119,8 +86,8 @@ export class Delivery extends BaseModel {
                 COALESCE(AVG(ds.courier_fee), 0) as avg_courier_fee
             FROM ${this.tableName} ds
             INNER JOIN sales s ON ds.sale_id = s.id
-            ${whereClause}
-                AND s.delivery_seconds IS NOT NULL
+            ${where}
+                ${where ? 'AND' : 'WHERE'} s.delivery_seconds IS NOT NULL
             GROUP BY ds.courier_type
             ORDER BY total_deliveries DESC
         `;

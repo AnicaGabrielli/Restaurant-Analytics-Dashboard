@@ -59,164 +59,117 @@
         </div>
     </div>
 
-    <!-- BARRA DE FILTROS REDESENHADA -->
-    <div class="filter-bar-modern" style="position: sticky; top: 56px; z-index: 1000;">
-        <div class="container-fluid py-4">
-            
-            <!-- Botão para expandir/colapsar filtros -->
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h6 class="mb-0 fw-bold text-muted">
-                    <i class="bi bi-sliders"></i> FILTROS E FERRAMENTAS
-                </h6>
-                <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#filtersCollapse">
-                    <i class="bi bi-chevron-down"></i> Expandir/Recolher
-                </button>
+    <!-- BARRA DE FILTROS -->
+    <div class="filter-bar" style="position: sticky; top: 56px; z-index: 1000; background: white; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+        <div class="container-fluid py-3">
+            <div class="row g-3 align-items-end">
+                
+                <!-- Período -->
+                <div class="col-lg-2 col-md-3 col-sm-6">
+                    <label class="form-label fw-semibold small">
+                        <i class="bi bi-calendar3 text-primary"></i> Período
+                    </label>
+                    <select class="form-select form-select-sm" id="filterPeriod">
+                        <option value="last7days">Últimos 7 dias</option>
+                        <option value="last30days" selected>Últimos 30 dias</option>
+                        <option value="last90days">Últimos 90 dias</option>
+                        <option value="thisMonth">Este mês</option>
+                        <option value="lastMonth">Mês passado</option>
+                        <option value="thisYear">Este ano</option>
+                        <option value="custom">📅 Personalizado</option>
+                    </select>
+                </div>
+
+                <!-- Datas Customizadas -->
+                <div class="col-lg-2 col-md-3 col-sm-6 custom-dates" style="display: none;">
+                    <label class="form-label fw-semibold small">
+                        <i class="bi bi-calendar-date"></i> Início
+                    </label>
+                    <input type="date" class="form-control form-control-sm" id="filterStartDate">
+                </div>
+
+                <div class="col-lg-2 col-md-3 col-sm-6 custom-dates" style="display: none;">
+                    <label class="form-label fw-semibold small">
+                        <i class="bi bi-calendar-date"></i> Fim
+                    </label>
+                    <input type="date" class="form-control form-control-sm" id="filterEndDate">
+                </div>
+
+                <!-- Canais -->
+                <div class="col-lg-2 col-md-3 col-sm-6">
+                    <label class="form-label fw-semibold small">
+                        <i class="bi bi-broadcast text-info"></i> Canais
+                    </label>
+                    <select class="form-select form-select-sm filter-multiselect" id="filterChannels" multiple>
+                        <!-- JS -->
+                    </select>
+                </div>
+
+                <!-- Lojas -->
+                <div class="col-lg-2 col-md-3 col-sm-6">
+                    <label class="form-label fw-semibold small">
+                        <i class="bi bi-shop text-success"></i> Lojas
+                    </label>
+                    <select class="form-select form-select-sm filter-multiselect" id="filterStores" multiple>
+                        <!-- JS -->
+                    </select>
+                </div>
+
+                <!-- Status -->
+                <div class="col-lg-2 col-md-3 col-sm-6">
+                    <label class="form-label fw-semibold small">
+                        <i class="bi bi-check-circle text-warning"></i> Status
+                    </label>
+                    <select class="form-select form-select-sm" id="filterStatus">
+                        <option value="COMPLETED" selected>✅ Completo</option>
+                        <option value="CANCELLED">❌ Cancelado</option>
+                        <option value="ALL">Todos</option>
+                    </select>
+                </div>
+
+                <!-- Botões -->
+                <div class="col-lg-2 col-md-12">
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-primary btn-sm flex-fill" onclick="applyFilters()">
+                            <i class="bi bi-funnel-fill"></i> Filtrar
+                        </button>
+                        <button class="btn btn-outline-secondary btn-sm" onclick="clearFilters()">
+                            <i class="bi bi-x-circle"></i>
+                        </button>
+                        <button class="btn btn-outline-primary btn-sm" onclick="refreshDashboard()" title="Atualizar">
+                            <i class="bi bi-arrow-clockwise"></i>
+                        </button>
+                    </div>
+                </div>
+
             </div>
 
-            <div class="collapse show" id="filtersCollapse">
-                <!-- Card de Filtros -->
-                <div class="card shadow-sm mb-3">
-                    <div class="card-header bg-light">
-                        <i class="bi bi-funnel-fill text-primary"></i>
-                        <strong>Filtros de Dados</strong>
-                    </div>
-                    <div class="card-body">
-                        <div class="row g-3">
-                            
-                            <!-- Período -->
-                            <div class="col-lg-3 col-md-4 col-sm-6">
-                                <label class="form-label fw-semibold small text-secondary mb-1">
-                                    <i class="bi bi-calendar3"></i> Período
-                                </label>
-                                <select class="form-select" id="filterPeriod">
-                                    <option value="last7days">Últimos 7 dias</option>
-                                    <option value="last30days" selected>Últimos 30 dias</option>
-                                    <option value="last90days">Últimos 90 dias</option>
-                                    <option value="thisMonth">Este mês</option>
-                                    <option value="lastMonth">Mês passado</option>
-                                    <option value="thisYear">Este ano</option>
-                                    <option value="custom">📅 Personalizado</option>
-                                </select>
-                            </div>
+            <!-- Badges de Filtros Ativos -->
+            <div class="mt-2" id="activeFilters"></div>
 
-                            <!-- Data Início -->
-                            <div class="col-lg-2 col-md-4 col-sm-6 custom-dates" style="display: none;">
-                                <label class="form-label fw-semibold small text-secondary mb-1">
-                                    <i class="bi bi-calendar-date"></i> Data Início
-                                </label>
-                                <input type="date" class="form-control" id="filterStartDate">
-                            </div>
-
-                            <!-- Data Fim -->
-                            <div class="col-lg-2 col-md-4 col-sm-6 custom-dates" style="display: none;">
-                                <label class="form-label fw-semibold small text-secondary mb-1">
-                                    <i class="bi bi-calendar-date"></i> Data Fim
-                                </label>
-                                <input type="date" class="form-control" id="filterEndDate">
-                            </div>
-
-                            <!-- Canais -->
-                            <div class="col-lg-3 col-md-4 col-sm-6">
-                                <label class="form-label fw-semibold small text-secondary mb-1">
-                                    <i class="bi bi-broadcast"></i> Canais de Venda
-                                </label>
-                                <select class="form-select" id="filterChannels" size="3" multiple>
-                                    <!-- Preenchido via JS -->
-                                </select>
-                                <small class="text-muted fst-italic">Ctrl+Click para múltiplos</small>
-                            </div>
-
-                            <!-- Lojas -->
-                            <div class="col-lg-3 col-md-4 col-sm-6">
-                                <label class="form-label fw-semibold small text-secondary mb-1">
-                                    <i class="bi bi-shop"></i> Lojas
-                                </label>
-                                <select class="form-select" id="filterStores" size="3" multiple>
-                                    <!-- Preenchido via JS -->
-                                </select>
-                                <small class="text-muted fst-italic">Ctrl+Click para múltiplos</small>
-                            </div>
-
-                            <!-- Status -->
-                            <div class="col-lg-3 col-md-4 col-sm-6">
-                                <label class="form-label fw-semibold small text-secondary mb-1">
-                                    <i class="bi bi-check-circle"></i> Status da Venda
-                                </label>
-                                <select class="form-select" id="filterStatus">
-                                    <option value="">Todos os Status</option>
-                                    <option value="COMPLETED" selected>✅ Completo</option>
-                                    <option value="CANCELLED">❌ Cancelado</option>
-                                </select>
-                            </div>
-
-                        </div>
-
-                        <!-- Botões de Ação -->
-                        <div class="row mt-4">
-                            <div class="col-12 d-flex gap-2 justify-content-end">
-                                <button class="btn btn-primary px-4" onclick="applyFilters()">
-                                    <i class="bi bi-funnel-fill"></i> Aplicar Filtros
-                                </button>
-                                <button class="btn btn-outline-secondary" onclick="clearFilters()">
-                                    <i class="bi bi-x-circle"></i> Limpar Tudo
-                                </button>
-                            </div>
-                        </div>
+            <!-- Barra de Busca e Exportação -->
+            <div class="row g-2 mt-2">
+                <div class="col-lg-7">
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text"><i class="bi bi-search"></i></span>
+                        <select class="form-select" style="max-width: 150px;" id="searchType">
+                            <option value="product">🍔 Produto</option>
+                            <option value="customer">👤 Cliente</option>
+                            <option value="sale">🧾 Pedido</option>
+                        </select>
+                        <input type="text" class="form-control" id="searchInput" placeholder="Buscar..." minlength="2">
+                        <button class="btn btn-info" onclick="performSearch()">Buscar</button>
                     </div>
                 </div>
-
-                <!-- Card de Busca e Exportação -->
-                <div class="card shadow-sm">
-                    <div class="card-header bg-light">
-                        <i class="bi bi-search text-info"></i>
-                        <strong>Busca e Exportação</strong>
+                <div class="col-lg-5">
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-success btn-sm flex-fill" onclick="exportData('csv')">
+                            <i class="bi bi-file-earmark-spreadsheet"></i> CSV
+                        </button>
+                        <button class="btn btn-success btn-sm flex-fill" onclick="exportData('json')">
+                            <i class="bi bi-filetype-json"></i> JSON
+                        </button>
                     </div>
-                    <div class="card-body">
-                        <div class="row g-3 align-items-end">
-                            
-                            <!-- Busca -->
-                            <div class="col-lg-7 col-md-6">
-                                <label class="form-label fw-semibold small text-secondary mb-1">
-                                    <i class="bi bi-search"></i> Buscar Registros
-                                </label>
-                                <div class="input-group">
-                                    <select class="form-select" style="max-width: 150px;" id="searchType">
-                                        <option value="product">🍔 Produto</option>
-                                        <option value="customer">👤 Cliente</option>
-                                        <option value="sale">🧾 Pedido</option>
-                                    </select>
-                                    <input type="text" class="form-control" id="searchInput" 
-                                           placeholder="Digite no mínimo 2 caracteres..." minlength="2">
-                                    <button class="btn btn-info" onclick="performSearch()">
-                                        <i class="bi bi-search"></i> Buscar
-                                    </button>
-                                </div>
-                            </div>
-
-                            <!-- Exportação -->
-                            <div class="col-lg-5 col-md-6">
-                                <label class="form-label fw-semibold small text-secondary mb-1">
-                                    <i class="bi bi-download"></i> Exportar Dados
-                                </label>
-                                <div class="d-flex gap-2">
-                                    <button class="btn btn-success flex-fill" onclick="exportData('csv')">
-                                        <i class="bi bi-file-earmark-spreadsheet"></i> Exportar CSV
-                                    </button>
-                                    <button class="btn btn-success flex-fill" onclick="exportData('json')">
-                                        <i class="bi bi-filetype-json"></i> Exportar JSON
-                                    </button>
-                                    <button class="btn btn-outline-primary" onclick="refreshDashboard()" title="Atualizar Dashboard">
-                                        <i class="bi bi-arrow-clockwise"></i>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Badges de Filtros Ativos -->
-                <div class="mt-3" id="activeFilters">
-                    <!-- Badges aparecerão via JS -->
                 </div>
             </div>
         </div>
@@ -227,18 +180,11 @@
         <div class="modal-dialog modal-xl modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">
-                        <i class="bi bi-search"></i> Resultados da Busca
-                    </h5>
+                    <h5 class="modal-title"><i class="bi bi-search"></i> Resultados da Busca</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <div id="searchResults">
-                        <!-- Resultados via JS -->
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                    <div id="searchResults"></div>
                 </div>
             </div>
         </div>
@@ -246,30 +192,14 @@
 
     <!-- CONTEÚDO PRINCIPAL -->
     <main class="container-fluid py-4">
-        
-        <!-- Barra de Comparação -->
-        <div class="alert alert-info d-none" id="comparisonBar" role="alert">
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <i class="bi bi-graph-up-arrow"></i>
-                    <strong>Comparação com Período Anterior:</strong>
-                    <span id="comparisonText"></span>
-                </div>
-            </div>
-        </div>
 
         <!-- SEÇÃO: VISÃO GERAL -->
         <section id="overview" class="mb-5">
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <h2 class="section-title">
-                    <i class="bi bi-speedometer2 text-warning"></i>
-                    Visão Geral
-                </h2>
-            </div>
+            <h2 class="section-title"><i class="bi bi-speedometer2"></i> Visão Geral</h2>
 
-            <!-- KPI Cards -->
-            <div class="row g-4 mb-4">
-                <div class="col-xl-3 col-lg-6 col-md-6">
+            <!-- KPIs -->
+            <div class="row g-3 mb-4">
+                <div class="col-xl-3 col-lg-6">
                     <div class="kpi-card">
                         <div class="kpi-icon bg-success-soft">
                             <i class="bi bi-currency-dollar text-success"></i>
@@ -281,7 +211,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="col-xl-3 col-lg-6 col-md-6">
+                <div class="col-xl-3 col-lg-6">
                     <div class="kpi-card">
                         <div class="kpi-icon bg-primary-soft">
                             <i class="bi bi-receipt text-primary"></i>
@@ -293,7 +223,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="col-xl-3 col-lg-6 col-md-6">
+                <div class="col-xl-3 col-lg-6">
                     <div class="kpi-card">
                         <div class="kpi-icon bg-warning-soft">
                             <i class="bi bi-tag text-warning"></i>
@@ -304,7 +234,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="col-xl-3 col-lg-6 col-md-6">
+                <div class="col-xl-3 col-lg-6">
                     <div class="kpi-card">
                         <div class="kpi-icon bg-info-soft">
                             <i class="bi bi-clock-history text-info"></i>
@@ -321,26 +251,184 @@
             <div class="row g-4">
                 <div class="col-lg-8">
                     <div class="chart-card">
-                        <h5 class="chart-title">
-                            <i class="bi bi-graph-up"></i> Vendas por Período
-                        </h5>
+                        <h5 class="chart-title"><i class="bi bi-graph-up"></i> Vendas por Período</h5>
                         <canvas id="salesTrendChart"></canvas>
                     </div>
                 </div>
                 <div class="col-lg-4">
                     <div class="chart-card">
-                        <h5 class="chart-title">
-                            <i class="bi bi-pie-chart"></i> Vendas por Canal
-                        </h5>
+                        <h5 class="chart-title"><i class="bi bi-pie-chart"></i> Vendas por Canal</h5>
                         <canvas id="channelChart"></canvas>
                     </div>
                 </div>
             </div>
         </section>
 
-        <!-- DEMAIS SEÇÕES (Sales, Products, Customers, Delivery) -->
-        <!-- Mantém o mesmo código das outras seções -->
-        
+        <!-- SEÇÃO: VENDAS -->
+        <section id="sales" class="mb-5">
+            <h2 class="section-title"><i class="bi bi-graph-up"></i> Análise de Vendas</h2>
+            <div class="row g-4">
+                <div class="col-lg-6">
+                    <div class="chart-card">
+                        <h5 class="chart-title"><i class="bi bi-clock"></i> Vendas por Hora</h5>
+                        <canvas id="hourlyChart"></canvas>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="chart-card">
+                        <h5 class="chart-title"><i class="bi bi-calendar-week"></i> Vendas por Dia da Semana</h5>
+                        <canvas id="weekdayChart"></canvas>
+                    </div>
+                </div>
+                <div class="col-12">
+                    <div class="chart-card">
+                        <h5 class="chart-title"><i class="bi bi-shop"></i> Performance por Loja</h5>
+                        <canvas id="storeChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SEÇÃO: PRODUTOS -->
+        <section id="products" class="mb-5">
+            <h2 class="section-title"><i class="bi bi-box-seam"></i> Análise de Produtos</h2>
+            <div class="row g-4">
+                <div class="col-lg-8">
+                    <div class="chart-card">
+                        <h5 class="chart-title"><i class="bi bi-trophy"></i> Top 10 Produtos</h5>
+                        <canvas id="topProductsChart"></canvas>
+                    </div>
+                </div>
+                <div class="col-lg-4">
+                    <div class="chart-card">
+                        <h5 class="chart-title"><i class="bi bi-pie-chart"></i> Vendas por Categoria</h5>
+                        <canvas id="categoriesChart"></canvas>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="chart-card">
+                        <h5 class="chart-title"><i class="bi bi-star"></i> Produtos Mais Customizados</h5>
+                        <canvas id="customizedProductsChart"></canvas>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="chart-card">
+                        <h5 class="chart-title"><i class="bi bi-plus-circle"></i> Top Adicionais</h5>
+                        <canvas id="topItemsChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SEÇÃO: CLIENTES -->
+        <section id="customers" class="mb-5">
+            <h2 class="section-title"><i class="bi bi-people"></i> Análise de Clientes</h2>
+            <div class="row g-4">
+                <div class="col-lg-6">
+                    <div class="chart-card">
+                        <h5 class="chart-title"><i class="bi bi-arrow-repeat"></i> Retenção de Clientes</h5>
+                        <canvas id="retentionChart"></canvas>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="chart-card">
+                        <h5 class="chart-title"><i class="bi bi-person-plus"></i> Novos vs Recorrentes</h5>
+                        <canvas id="customerTypeChart"></canvas>
+                    </div>
+                </div>
+                <div class="col-12">
+                    <div class="chart-card">
+                        <h5 class="chart-title"><i class="bi bi-star-fill"></i> Top 15 Clientes</h5>
+                        <div class="table-responsive">
+                            <table class="table table-hover" id="topCustomersTable">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Nome</th>
+                                        <th>Email</th>
+                                        <th>Compras</th>
+                                        <th>Total Gasto</th>
+                                        <th>Ticket Médio</th>
+                                        <th>Última Compra</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SEÇÃO: ENTREGAS -->
+        <section id="delivery" class="mb-5">
+            <h2 class="section-title"><i class="bi bi-truck"></i> Análise de Entregas</h2>
+            
+            <!-- KPIs Delivery -->
+            <div class="row g-3 mb-4">
+                <div class="col-lg-3 col-md-6">
+                    <div class="kpi-card">
+                        <div class="kpi-icon bg-danger-soft">
+                            <i class="bi bi-box-seam text-danger"></i>
+                        </div>
+                        <div class="kpi-content">
+                            <div class="kpi-label">Total de Entregas</div>
+                            <div class="kpi-value" id="totalDeliveries">0</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-3 col-md-6">
+                    <div class="kpi-card">
+                        <div class="kpi-icon bg-warning-soft">
+                            <i class="bi bi-clock text-warning"></i>
+                        </div>
+                        <div class="kpi-content">
+                            <div class="kpi-label">Tempo Médio</div>
+                            <div class="kpi-value" id="avgDeliveryTime">0 min</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-3 col-md-6">
+                    <div class="kpi-card">
+                        <div class="kpi-icon bg-info-soft">
+                            <i class="bi bi-currency-dollar text-info"></i>
+                        </div>
+                        <div class="kpi-content">
+                            <div class="kpi-label">Taxa Média</div>
+                            <div class="kpi-value" id="avgDeliveryFee">R$ 0,00</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-3 col-md-6">
+                    <div class="kpi-card">
+                        <div class="kpi-icon bg-success-soft">
+                            <i class="bi bi-cash-stack text-success"></i>
+                        </div>
+                        <div class="kpi-content">
+                            <div class="kpi-label">Receita Entregas</div>
+                            <div class="kpi-value" id="totalDeliveryRevenue">R$ 0,00</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Gráficos Delivery -->
+            <div class="row g-4">
+                <div class="col-lg-6">
+                    <div class="chart-card">
+                        <h5 class="chart-title"><i class="bi bi-geo-alt"></i> Top Bairros</h5>
+                        <canvas id="topNeighborhoodsChart"></canvas>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="chart-card">
+                        <h5 class="chart-title"><i class="bi bi-speedometer2"></i> Performance por Região</h5>
+                        <canvas id="deliveryPerformanceChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
     </main>
 
     <!-- FOOTER -->
@@ -351,8 +439,8 @@
                 Restaurant Analytics Dashboard • God Level Coder Challenge
             </p>
             <small class="text-muted">
-                Powered by Node.js, MySQL & Chart.js | 
-                <span id="cacheStats">Carregando stats...</span>
+                Node.js + MySQL + Chart.js | 
+                <span id="cacheStats">Carregando...</span>
             </small>
         </div>
     </footer>

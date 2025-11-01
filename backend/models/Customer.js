@@ -1,22 +1,13 @@
 // ========== backend/models/Customer.js - CORRIGIDO ==========
 import { BaseModel } from './BaseModel.js';
-
 export class Customer extends BaseModel {
     constructor() {
         super('customers');
     }
 
     async getCustomerRetention(filters = {}) {
-        let whereClause = 'WHERE s.sale_status_desc = "COMPLETED"';
-        let params = [];
-
-        if (filters.period === 'last7days') {
-            whereClause += ' AND s.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)';
-        } else if (filters.period === 'last90days') {
-            whereClause += ' AND s.created_at >= DATE_SUB(NOW(), INTERVAL 90 DAY)';
-        } else {
-            whereClause += ' AND s.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)';
-        }
+        const { default: filterService } = await import('../services/FilterService.js');
+        const { where, params } = filterService.buildWhereClause(filters, 's');
 
         const query = `
             SELECT 
@@ -35,7 +26,7 @@ export class Customer extends BaseModel {
                     COUNT(s.id) as purchase_count,
                     SUM(s.total_amount) as total_spent
                 FROM ${this.tableName} c
-                LEFT JOIN sales s ON c.id = s.customer_id ${whereClause}
+                LEFT JOIN sales s ON c.id = s.customer_id ${where ? 'AND ' + where.replace('WHERE ', '') : ''}
                 GROUP BY c.id
             ) customer_stats
             GROUP BY segment
@@ -48,22 +39,13 @@ export class Customer extends BaseModel {
                 END
         `;
 
-        return await this.query(query, [...params, ...params]);
+        return await this.query(query, params);
     }
 
     async getTopCustomers(limit = 10, filters = {}) {
-        let whereClause = 'WHERE s.sale_status_desc = "COMPLETED"';
-        let params = [];
+        const { default: filterService } = await import('../services/FilterService.js');
+        const { where, params } = filterService.buildWhereClause(filters, 's');
 
-        if (filters.period === 'last7days') {
-            whereClause += ' AND s.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)';
-        } else if (filters.period === 'last90days') {
-            whereClause += ' AND s.created_at >= DATE_SUB(NOW(), INTERVAL 90 DAY)';
-        } else {
-            whereClause += ' AND s.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)';
-        }
-
-        // CORRIGIDO: LIMIT direto na query
         const query = `
             SELECT 
                 c.customer_name,
@@ -74,26 +56,18 @@ export class Customer extends BaseModel {
                 MAX(s.created_at) as last_purchase
             FROM ${this.tableName} c
             INNER JOIN sales s ON c.id = s.customer_id
-            ${whereClause}
+            ${where}
             GROUP BY c.id, c.customer_name, c.email
             ORDER BY total_spent DESC
-            LIMIT ${parseInt(limit)}
+            LIMIT ?
         `;
 
-        return await this.query(query, params);
+        return await this.query(query, [...params, limit]);
     }
 
     async getNewVsReturning(filters = {}) {
-        let whereClause = 'WHERE s.sale_status_desc = "COMPLETED"';
-        let params = [];
-
-        if (filters.period === 'last7days') {
-            whereClause += ' AND s.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)';
-        } else if (filters.period === 'last90days') {
-            whereClause += ' AND s.created_at >= DATE_SUB(NOW(), INTERVAL 90 DAY)';
-        } else {
-            whereClause += ' AND s.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)';
-        }
+        const { default: filterService } = await import('../services/FilterService.js');
+        const { where, params } = filterService.buildWhereClause(filters, 's');
 
         const query = `
             SELECT 
@@ -106,26 +80,18 @@ export class Customer extends BaseModel {
                     COUNT(s.id) as purchase_count,
                     SUM(s.total_amount) as total_spent
                 FROM ${this.tableName} c
-                LEFT JOIN sales s ON c.id = s.customer_id ${whereClause}
+                LEFT JOIN sales s ON c.id = s.customer_id ${where ? 'AND ' + where.replace('WHERE ', '') : ''}
                 GROUP BY c.id
             ) customer_stats
             GROUP BY customer_type
         `;
 
-        return await this.query(query, [...params, ...params]);
+        return await this.query(query, params);
     }
 
     async getLifetimeValueAnalysis(filters = {}) {
-        let whereClause = 'WHERE s.sale_status_desc = "COMPLETED"';
-        let params = [];
-
-        if (filters.period === 'last7days') {
-            whereClause += ' AND s.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)';
-        } else if (filters.period === 'last90days') {
-            whereClause += ' AND s.created_at >= DATE_SUB(NOW(), INTERVAL 90 DAY)';
-        } else {
-            whereClause += ' AND s.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)';
-        }
+        const { default: filterService } = await import('../services/FilterService.js');
+        const { where, params } = filterService.buildWhereClause(filters, 's');
 
         const query = `
             SELECT 
@@ -143,14 +109,14 @@ export class Customer extends BaseModel {
                     c.id,
                     SUM(s.total_amount) as total_spent
                 FROM ${this.tableName} c
-                LEFT JOIN sales s ON c.id = s.customer_id ${whereClause}
+                LEFT JOIN sales s ON c.id = s.customer_id ${where ? 'AND ' + where.replace('WHERE ', '') : ''}
                 GROUP BY c.id
             ) customer_ltv
             GROUP BY ltv_segment
             ORDER BY avg_ltv DESC
         `;
 
-        return await this.query(query, [...params, ...params]);
+        return await this.query(query, params);
     }
 
     async getChurnRiskCustomers(filters = {}) {
@@ -180,7 +146,6 @@ export class Customer extends BaseModel {
         const offset = (page - 1) * limit;
         const searchPattern = `%${searchTerm}%`;
 
-        // CORRIGIDO: LIMIT e OFFSET diretos na query
         const query = `
             SELECT 
                 c.id,
@@ -197,10 +162,10 @@ export class Customer extends BaseModel {
             )
             GROUP BY c.id, c.customer_name, c.email
             ORDER BY total_spent DESC
-            LIMIT ${parseInt(limit)} OFFSET ${parseInt(offset)}
+            LIMIT ? OFFSET ?
         `;
 
-        return await this.query(query, [searchPattern, searchPattern]);
+        return await this.query(query, [searchPattern, searchPattern, limit, offset]);
     }
 }
 

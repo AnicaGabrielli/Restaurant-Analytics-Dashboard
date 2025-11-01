@@ -1,332 +1,326 @@
-// ========== backend/services/FilterService.js - CORRIGIDO ==========
-/**
- * Serviço de construção dinâmica de filtros SQL
- * Suporta múltiplos filtros combinados com segurança
- */
+// ========== backend/services/FilterService.js ==========
+// Construção dinâmica e segura de filtros SQL com validação
 
+import Joi from 'joi';
+import logger from '../utils/logger.js';
+import { ValidationError } from '../utils/errorHandler.js';
+
+/**
+ * Serviço de construção de filtros SQL dinâmicos
+ */
 export class FilterService {
     constructor() {
-        // Campos permitidos para ordenação (previne SQL injection)
-        this.allowedSortFields = {
-            sales: ['created_at', 'total_amount', 'sale_status_desc'],
-            products: ['name', 'id'],
-            customers: ['customer_name', 'email', 'created_at'],
-            stores: ['name', 'city']
-        };
-
-        // Operadores permitidos
-        this.allowedOperators = ['=', '>', '<', '>=', '<=', 'LIKE', 'IN', 'BETWEEN'];
+        // Schema de validação de filtros
+        this.filterSchema = Joi.object({
+            // Período
+            period: Joi.string().valid(
+                'last7days', 'last30days', 'last90days',
+                'thisMonth', 'lastMonth', 'thisYear', 'lastYear'
+            ),
+            startDate: Joi.date().iso(),
+            endDate: Joi.date().iso().min(Joi.ref('startDate')),
+            
+            // IDs
+            channelIds: Joi.alternatives().try(
+                Joi.array().items(Joi.number().integer().positive()),
+                Joi.number().integer().positive()
+            ),
+            storeIds: Joi.alternatives().try(
+                Joi.array().items(Joi.number().integer().positive()),
+                Joi.number().integer().positive()
+            ),
+            categoryId: Joi.number().integer().positive(),
+            customerId: Joi.number().integer().positive(),
+            
+            // Status
+            status: Joi.alternatives().try(
+                Joi.string().valid('COMPLETED', 'CANCELLED', 'ALL'),
+                Joi.array().items(Joi.string().valid('COMPLETED', 'CANCELLED'))
+            ),
+            
+            // Valores
+            minAmount: Joi.number().min(0),
+            maxAmount: Joi.number().min(Joi.ref('minAmount')),
+            
+            // Busca
+            search: Joi.string().max(100),
+            searchField: Joi.string().valid('product', 'customer', 'sale'),
+            
+            // Paginação
+            page: Joi.number().integer().min(1).default(1),
+            limit: Joi.number().integer().min(1).max(1000).default(50),
+            
+            // Ordenação
+            sortBy: Joi.string(),
+            sortOrder: Joi.string().valid('ASC', 'DESC').default('DESC')
+        }).oxor('period', 'startDate'); // Ou period OU startDate, não ambos
     }
-
+    
     /**
-     * Constrói WHERE clause baseado em filtros - CORRIGIDO
-     * @param {Object} filters - Objeto com filtros
+     * Valida e normaliza filtros
+     */
+    validateFilters(filters) {
+        const { error, value } = this.filterSchema.validate(filters, {
+            stripUnknown: true,
+            abortEarly: false
+        });
+        
+        if (error) {
+            const details = error.details.map(d => ({
+                field: d.path.join('.'),
+                message: d.message
+            }));
+            
+            logger.warn('Validação de filtros falhou', { details });
+            throw new ValidationError('Filtros inválidos', { details });
+        }
+        
+        // Normaliza arrays
+        if (value.channelIds && !Array.isArray(value.channelIds)) {
+            value.channelIds = [value.channelIds];
+        }
+        
+        if (value.storeIds && !Array.isArray(value.storeIds)) {
+            value.storeIds = [value.storeIds];
+        }
+        
+        if (value.status && !Array.isArray(value.status) && value.status !== 'ALL') {
+            value.status = [value.status];
+        }
+        
+        return value;
+    }
+    
+    /**
+     * Constrói WHERE clause com alias de tabela para evitar ambiguidade
+     * @param {Object} filters - Filtros validados
+     * @param {string} tableAlias - Alias da tabela (ex: 's' para sales)
      * @returns {Object} {where: string, params: array}
      */
-    buildWhereClause(filters) {
+    buildWhereClause(filters, tableAlias = '') {
         const conditions = [];
         const params = [];
-
-        // Filtro de período customizado
+        const prefix = tableAlias ? `${tableAlias}.` : '';
+        
+        // Status
+        if (filters.status && filters.status !== 'ALL') {
+            if (Array.isArray(filters.status)) {
+                const placeholders = filters.status.map(() => '?').join(',');
+                conditions.push(`${prefix}sale_status_desc IN (${placeholders})`);
+                params.push(...filters.status);
+            } else {
+                conditions.push(`${prefix}sale_status_desc = ?`);
+                params.push(filters.status);
+            }
+        }
+        
+        // Período customizado
         if (filters.startDate && filters.endDate) {
-            conditions.push('created_at BETWEEN ? AND ?');
+            conditions.push(`${prefix}created_at BETWEEN ? AND ?`);
             params.push(filters.startDate, filters.endDate);
-        } 
-        // Filtro de período predefinido
+        }
+        // Período predefinido
         else if (filters.period) {
-            const periodClause = this.buildPeriodClause(filters.period);
+            const periodClause = this.buildPeriodClause(filters.period, prefix);
             if (periodClause) {
                 conditions.push(periodClause);
             }
         }
-
-        // Filtro de canais (múltipla seleção) - CORRIGIDO
-        if (filters.channelIds) {
-            const channelArray = Array.isArray(filters.channelIds) 
-                ? filters.channelIds 
-                : filters.channelIds.toString().split(',').map(id => parseInt(id.trim()));
-            
-            if (channelArray.length > 0 && channelArray[0] !== '') {
-                const placeholders = channelArray.map(() => '?').join(',');
-                conditions.push(`channel_id IN (${placeholders})`);
-                params.push(...channelArray);
-            }
-        }
-
-        // Filtro de lojas (múltipla seleção) - CORRIGIDO
-        if (filters.storeIds) {
-            const storeArray = Array.isArray(filters.storeIds)
-                ? filters.storeIds
-                : filters.storeIds.toString().split(',').map(id => parseInt(id.trim()));
-            
-            if (storeArray.length > 0 && storeArray[0] !== '') {
-                const placeholders = storeArray.map(() => '?').join(',');
-                conditions.push(`store_id IN (${placeholders})`);
-                params.push(...storeArray);
-            }
-        }
-
-        // Filtro de status - CORRIGIDO
-        if (filters.status) {
-            const statusArray = Array.isArray(filters.status)
-                ? filters.status
-                : filters.status.toString().split(',');
-            
-            if (statusArray.length > 0 && statusArray[0] !== '') {
-                const placeholders = statusArray.map(() => '?').join(',');
-                conditions.push(`sale_status_desc IN (${placeholders})`);
-                params.push(...statusArray);
-            }
-        }
-
-        // Filtro de categoria (produtos)
-        if (filters.categoryId) {
-            conditions.push('category_id = ?');
-            params.push(parseInt(filters.categoryId));
-        }
-
-        // Filtro de valor mínimo
-        if (filters.minAmount) {
-            conditions.push('total_amount >= ?');
-            params.push(parseFloat(filters.minAmount));
-        }
-
-        // Filtro de valor máximo
-        if (filters.maxAmount) {
-            conditions.push('total_amount <= ?');
-            params.push(parseFloat(filters.maxAmount));
-        }
-
-        // Filtro de cliente
-        if (filters.customerId) {
-            conditions.push('customer_id = ?');
-            params.push(parseInt(filters.customerId));
-        }
-
-        // Busca textual (produtos, clientes) - Removido daqui, tratado separadamente
         
-        const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+        // Canais
+        if (filters.channelIds && filters.channelIds.length > 0) {
+            const placeholders = filters.channelIds.map(() => '?').join(',');
+            conditions.push(`${prefix}channel_id IN (${placeholders})`);
+            params.push(...filters.channelIds);
+        }
+        
+        // Lojas
+        if (filters.storeIds && filters.storeIds.length > 0) {
+            const placeholders = filters.storeIds.map(() => '?').join(',');
+            conditions.push(`${prefix}store_id IN (${placeholders})`);
+            params.push(...filters.storeIds);
+        }
+        
+        // Categoria
+        if (filters.categoryId) {
+            conditions.push(`${prefix}category_id = ?`);
+            params.push(filters.categoryId);
+        }
+        
+        // Cliente
+        if (filters.customerId) {
+            conditions.push(`${prefix}customer_id = ?`);
+            params.push(filters.customerId);
+        }
+        
+        // Valor mínimo
+        if (filters.minAmount !== undefined) {
+            conditions.push(`${prefix}total_amount >= ?`);
+            params.push(filters.minAmount);
+        }
+        
+        // Valor máximo
+        if (filters.maxAmount !== undefined) {
+            conditions.push(`${prefix}total_amount <= ?`);
+            params.push(filters.maxAmount);
+        }
+        
+        const whereClause = conditions.length > 0 
+            ? `WHERE ${conditions.join(' AND ')}` 
+            : '';
         
         return { where: whereClause, params };
     }
-
+    
     /**
      * Constrói cláusula de período predefinido
-     * @param {string} period - 'last7days', 'last30days', etc
-     * @returns {string} SQL condition
      */
-    buildPeriodClause(period) {
+    buildPeriodClause(period, prefix = '') {
+        const col = `${prefix}created_at`;
+        
         const periodMap = {
-            'last7days': 'created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)',
-            'last30days': 'created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)',
-            'last90days': 'created_at >= DATE_SUB(NOW(), INTERVAL 90 DAY)',
-            'thisMonth': 'YEAR(created_at) = YEAR(NOW()) AND MONTH(created_at) = MONTH(NOW())',
-            'lastMonth': 'created_at >= DATE_SUB(DATE_SUB(NOW(), INTERVAL 1 MONTH), INTERVAL DAY(NOW())-1 DAY) AND created_at < DATE_SUB(NOW(), INTERVAL DAY(NOW())-1 DAY)',
-            'thisYear': 'YEAR(created_at) = YEAR(NOW())',
-            'lastYear': 'YEAR(created_at) = YEAR(NOW()) - 1'
+            'last7days': `${col} >= DATE_SUB(NOW(), INTERVAL 7 DAY)`,
+            'last30days': `${col} >= DATE_SUB(NOW(), INTERVAL 30 DAY)`,
+            'last90days': `${col} >= DATE_SUB(NOW(), INTERVAL 90 DAY)`,
+            'thisMonth': `YEAR(${col}) = YEAR(NOW()) AND MONTH(${col}) = MONTH(NOW())`,
+            'lastMonth': `${col} >= DATE_FORMAT(DATE_SUB(NOW(), INTERVAL 1 MONTH), '%Y-%m-01') 
+                          AND ${col} < DATE_FORMAT(NOW(), '%Y-%m-01')`,
+            'thisYear': `YEAR(${col}) = YEAR(NOW())`,
+            'lastYear': `YEAR(${col}) = YEAR(NOW()) - 1`
         };
-
+        
         return periodMap[period] || null;
     }
-
+    
     /**
-     * Constrói ORDER BY clause
-     * @param {string} table - Nome da tabela
-     * @param {string} sortBy - Campo de ordenação
-     * @param {string} sortOrder - 'ASC' ou 'DESC'
-     * @returns {string} ORDER BY clause
+     * Constrói cláusula ORDER BY segura
      */
-    buildOrderClause(table, sortBy, sortOrder = 'DESC') {
-        // Validação de segurança
-        const allowedFields = this.allowedSortFields[table] || [];
-        const field = allowedFields.includes(sortBy) ? sortBy : allowedFields[0] || 'id';
+    buildOrderClause(allowedFields, sortBy, sortOrder = 'DESC', prefix = '') {
+        // Validação
+        if (!allowedFields.includes(sortBy)) {
+            sortBy = allowedFields[0] || 'id';
+        }
+        
         const order = sortOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
-
+        const field = prefix ? `${prefix}.${sortBy}` : sortBy;
+        
         return `ORDER BY ${field} ${order}`;
     }
-
+    
     /**
-     * Constrói LIMIT clause com paginação
-     * @param {number} page - Número da página (1-based)
-     * @param {number} limit - Registros por página
-     * @returns {Object} {limit: string, offset: number}
+     * Constrói cláusula LIMIT e OFFSET seguros
      */
     buildLimitClause(page = 1, limit = 50) {
-        const maxLimit = 1000; // Segurança
-        const safeLimit = Math.min(parseInt(limit) || 50, maxLimit);
-        const safePage = Math.max(parseInt(page) || 1, 1);
+        const maxLimit = 1000;
+        const safeLimit = Math.min(Math.max(1, parseInt(limit) || 50), maxLimit);
+        const safePage = Math.max(1, parseInt(page) || 1);
         const offset = (safePage - 1) * safeLimit;
-
+        
         return {
-            limit: `LIMIT ${safeLimit} OFFSET ${offset}`,
+            clause: `LIMIT ${safeLimit} OFFSET ${offset}`,
+            limit: safeLimit,
             offset,
-            safeLimit
+            page: safePage
         };
     }
-
+    
     /**
-     * Validação de filtros recebidos - MELHORADO
-     * @param {Object} filters - Filtros a validar
-     * @returns {Object} Filtros validados
+     * Constrói cláusula de busca textual
      */
-    validateFilters(filters) {
-        const validated = {};
-
-        // Validar datas
-        if (filters.startDate) {
-            const date = new Date(filters.startDate);
-            if (!isNaN(date.getTime())) {
-                validated.startDate = filters.startDate;
-            }
-        }
-
-        if (filters.endDate) {
-            const date = new Date(filters.endDate);
-            if (!isNaN(date.getTime())) {
-                validated.endDate = filters.endDate;
-            }
-        }
-
-        // Validar período
-        if (filters.period && typeof filters.period === 'string') {
-            validated.period = filters.period;
-        }
-
-        // Validar arrays de IDs - CORRIGIDO
-        if (filters.channelIds) {
-            validated.channelIds = this.validateIdArray(filters.channelIds);
-        }
-
-        if (filters.storeIds) {
-            validated.storeIds = this.validateIdArray(filters.storeIds);
-        }
-
-        // Validar status - CORRIGIDO
-        if (filters.status) {
-            if (Array.isArray(filters.status)) {
-                validated.status = filters.status.filter(s => s !== '');
-            } else if (typeof filters.status === 'string' && filters.status !== '') {
-                validated.status = [filters.status];
-            }
-        }
-
-        // Validar números
-        if (filters.categoryId) {
-            const id = parseInt(filters.categoryId);
-            if (!isNaN(id)) validated.categoryId = id;
-        }
-
-        if (filters.customerId) {
-            const id = parseInt(filters.customerId);
-            if (!isNaN(id)) validated.customerId = id;
-        }
-
-        if (filters.minAmount) {
-            const amount = parseFloat(filters.minAmount);
-            if (!isNaN(amount)) validated.minAmount = amount;
-        }
-
-        if (filters.maxAmount) {
-            const amount = parseFloat(filters.maxAmount);
-            if (!isNaN(amount)) validated.maxAmount = amount;
-        }
-
-        // Validar busca
-        if (filters.search && typeof filters.search === 'string') {
-            validated.search = filters.search.substring(0, 100); // Limitar tamanho
-            validated.searchField = filters.searchField || 'product';
-        }
-
-        return validated;
-    }
-
-    /**
-     * Valida array de IDs - CORRIGIDO
-     * @param {Array|string} ids - IDs a validar
-     * @returns {Array} Array de IDs válidos
-     */
-    validateIdArray(ids) {
-        if (!ids) return [];
-        
-        let idsArray;
-        if (Array.isArray(ids)) {
-            idsArray = ids;
-        } else if (typeof ids === 'string') {
-            idsArray = ids.split(',');
-        } else {
-            return [];
+    buildSearchClause(searchTerm, searchFields, prefix = '') {
+        if (!searchTerm || searchTerm.length < 2) {
+            return { clause: '', params: [] };
         }
         
-        return idsArray
-            .map(id => parseInt(id))
-            .filter(id => !isNaN(id) && id > 0);
+        const searchPattern = `%${searchTerm}%`;
+        const conditions = searchFields.map(field => {
+            const fullField = prefix ? `${prefix}.${field}` : field;
+            return `${fullField} LIKE ?`;
+        });
+        
+        return {
+            clause: `(${conditions.join(' OR ')})`,
+            params: Array(searchFields.length).fill(searchPattern)
+        };
     }
-
+    
     /**
      * Gera chave de cache baseada em filtros
-     * @param {string} prefix - Prefixo da chave
-     * @param {Object} filters - Filtros aplicados
-     * @returns {string} Chave de cache
      */
     generateCacheKey(prefix, filters) {
-        const sortedKeys = Object.keys(filters).sort();
+        // Remove campos não relevantes para cache
+        const { page, limit, ...relevantFilters } = filters;
+        
+        // Ordena chaves para consistência
+        const sortedKeys = Object.keys(relevantFilters).sort();
         const keyParts = sortedKeys.map(key => {
-            const value = filters[key];
+            const value = relevantFilters[key];
             if (Array.isArray(value)) {
-                return `${key}:${value.join(',')}`;
+                return `${key}:${value.sort().join(',')}`;
             }
             return `${key}:${value}`;
         });
-
+        
         return `${prefix}:${keyParts.join('|')}`;
     }
-
+    
     /**
-     * Constrói query completa para vendas com filtros - CORRIGIDO
-     * @param {Object} filters - Filtros validados
-     * @param {Object} options - Opções de paginação e ordenação
-     * @returns {Object} {sql, params}
+     * Extrai período anterior para comparações
      */
-    buildSalesQuery(filters, options = {}) {
-        const { where, params } = this.buildWhereClause(filters);
-        const orderClause = this.buildOrderClause('sales', options.sortBy || 'created_at', options.sortOrder);
-        const { limit } = this.buildLimitClause(options.page, options.limit);
-
-        // Qualifica created_at com alias de tabela
-        const qualifiedWhere = where.replace(/\bcreated_at\b/g, 's.created_at');
-
-        const sql = `
-            SELECT 
-                s.*,
-                c.customer_name,
-                c.email,
-                ch.name as channel_name,
-                st.name as store_name,
-                st.city as store_city
-            FROM sales s
-            LEFT JOIN customers c ON s.customer_id = c.id
-            INNER JOIN channels ch ON s.channel_id = ch.id
-            INNER JOIN stores st ON s.store_id = st.id
-            ${qualifiedWhere}
-            ${orderClause.replace('created_at', 's.created_at')}
-            ${limit}
-        `;
-
-        return { sql, params };
+    calculatePreviousPeriod(filters) {
+        const previousFilters = { ...filters };
+        
+        if (filters.startDate && filters.endDate) {
+            const start = new Date(filters.startDate);
+            const end = new Date(filters.endDate);
+            const duration = end - start;
+            
+            previousFilters.startDate = new Date(start.getTime() - duration)
+                .toISOString().split('T')[0];
+            previousFilters.endDate = new Date(start.getTime() - 1)
+                .toISOString().split('T')[0];
+            
+            delete previousFilters.period;
+        } else if (filters.period) {
+            const periodMap = {
+                'last7days': 'previous7days',
+                'last30days': 'previous30days',
+                'last90days': 'previous90days',
+                'thisMonth': 'lastMonth',
+                'thisYear': 'lastYear'
+            };
+            
+            previousFilters.period = periodMap[filters.period] || filters.period;
+        }
+        
+        return previousFilters;
     }
-
+    
     /**
-     * Constrói query de contagem para paginação
-     * @param {string} table - Nome da tabela
-     * @param {Object} filters - Filtros aplicados
-     * @returns {Object} {sql, params}
+     * Constrói query completa de contagem
      */
-    buildCountQuery(table, filters) {
-        const { where, params } = this.buildWhereClause(filters);
-
-        const sql = `SELECT COUNT(*) as total FROM ${table} ${where}`;
-
-        return { sql, params };
+    buildCountQuery(table, filters, tableAlias = '') {
+        const { where, params } = this.buildWhereClause(filters, tableAlias);
+        const tableRef = tableAlias ? `${table} ${tableAlias}` : table;
+        
+        return {
+            sql: `SELECT COUNT(*) as total FROM ${tableRef} ${where}`,
+            params
+        };
+    }
+    
+    /**
+     * Valida e sanitiza input de busca
+     */
+    sanitizeSearchTerm(term) {
+        if (!term || typeof term !== 'string') {
+            return '';
+        }
+        
+        return term
+            .trim()
+            .substring(0, 100)
+            .replace(/[<>'"`;]/g, ''); // Remove caracteres perigosos
     }
 }
 

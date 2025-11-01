@@ -7,18 +7,10 @@ export class Product extends BaseModel {
     }
 
     async getTopSellingProducts(limit = 10, filters = {}) {
-        let whereClause = 'WHERE s.sale_status_desc = "COMPLETED"';
-        let params = [];
+        // Importa filterService aqui para evitar circular dependency
+        const { default: filterService } = await import('../services/FilterService.js');
+        const { where, params } = filterService.buildWhereClause(filters, 's');
 
-        if (filters.period === 'last7days') {
-            whereClause += ' AND s.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)';
-        } else if (filters.period === 'last90days') {
-            whereClause += ' AND s.created_at >= DATE_SUB(NOW(), INTERVAL 90 DAY)';
-        } else {
-            whereClause += ' AND s.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)';
-        }
-
-        // CORRIGIDO: LIMIT direto na query (não como parâmetro)
         const query = `
             SELECT 
                 p.id,
@@ -32,26 +24,18 @@ export class Product extends BaseModel {
             INNER JOIN product_sales ps ON p.id = ps.product_id
             INNER JOIN sales s ON ps.sale_id = s.id
             LEFT JOIN categories c ON p.category_id = c.id
-            ${whereClause}
+            ${where}
             GROUP BY p.id, p.name, c.name
             ORDER BY total_revenue DESC
-            LIMIT ${parseInt(limit)}
+            LIMIT ?
         `;
 
-        return await this.query(query, params);
+        return await this.query(query, [...params, limit]);
     }
 
     async getProductsByCategory(filters = {}) {
-        let whereClause = 'WHERE c.type = "P" AND s.sale_status_desc = "COMPLETED"';
-        let params = [];
-
-        if (filters.period === 'last7days') {
-            whereClause += ' AND s.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)';
-        } else if (filters.period === 'last90days') {
-            whereClause += ' AND s.created_at >= DATE_SUB(NOW(), INTERVAL 90 DAY)';
-        } else {
-            whereClause += ' AND s.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)';
-        }
+        const { default: filterService } = await import('../services/FilterService.js');
+        const { where, params } = filterService.buildWhereClause(filters, 's');
 
         const query = `
             SELECT 
@@ -63,7 +47,7 @@ export class Product extends BaseModel {
             LEFT JOIN ${this.tableName} p ON c.id = p.category_id
             LEFT JOIN product_sales ps ON p.id = ps.product_id
             LEFT JOIN sales s ON ps.sale_id = s.id
-            ${whereClause}
+            ${where ? where.replace('WHERE', 'WHERE c.type = "P" AND') : 'WHERE c.type = "P"'}
             GROUP BY c.id, c.name
             HAVING total_revenue > 0
             ORDER BY total_revenue DESC
@@ -73,51 +57,33 @@ export class Product extends BaseModel {
     }
 
     async getMostCustomizedProducts(limit = 10, filters = {}) {
-        let whereClause = 'WHERE s.sale_status_desc = "COMPLETED"';
-        let params = [];
+        const { default: filterService } = await import('../services/FilterService.js');
+        const { where, params } = filterService.buildWhereClause(filters, 's');
 
-        if (filters.period === 'last7days') {
-            whereClause += ' AND s.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)';
-        } else if (filters.period === 'last90days') {
-            whereClause += ' AND s.created_at >= DATE_SUB(NOW(), INTERVAL 90 DAY)';
-        } else {
-            whereClause += ' AND s.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)';
-        }
-
-        // CORRIGIDO: LIMIT direto
         const query = `
             SELECT 
                 p.name as product_name,
                 COUNT(DISTINCT ips.id) as customization_count,
                 COUNT(DISTINCT ps.id) as times_sold,
-                ROUND(COUNT(DISTINCT ips.id) * 100.0 / COUNT(DISTINCT ps.id), 2) as customization_rate
+                ROUND(COUNT(DISTINCT ips.id) * 100.0 / NULLIF(COUNT(DISTINCT ps.id), 0), 2) as customization_rate
             FROM ${this.tableName} p
             INNER JOIN product_sales ps ON p.id = ps.product_id
             LEFT JOIN item_product_sales ips ON ps.id = ips.product_sale_id
             INNER JOIN sales s ON ps.sale_id = s.id
-            ${whereClause}
+            ${where}
             GROUP BY p.id, p.name
             HAVING customization_count > 0
             ORDER BY customization_rate DESC
-            LIMIT ${parseInt(limit)}
+            LIMIT ?
         `;
 
-        return await this.query(query, params);
+        return await this.query(query, [...params, limit]);
     }
 
     async getLowPerformingProducts(limit = 10, filters = {}) {
-        let whereClause = 's.sale_status_desc = "COMPLETED"';
-        let params = [];
+        const { default: filterService } = await import('../services/FilterService.js');
+        const { where, params } = filterService.buildWhereClause(filters, 's');
 
-        if (filters.period === 'last7days') {
-            whereClause += ' AND s.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)';
-        } else if (filters.period === 'last90days') {
-            whereClause += ' AND s.created_at >= DATE_SUB(NOW(), INTERVAL 90 DAY)';
-        } else {
-            whereClause += ' AND s.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)';
-        }
-
-        // CORRIGIDO: WHERE único e LIMIT direto
         const query = `
             SELECT 
                 p.id,
@@ -127,23 +93,22 @@ export class Product extends BaseModel {
                 COALESCE(SUM(ps.total_price), 0) as total_revenue
             FROM ${this.tableName} p
             LEFT JOIN product_sales ps ON p.id = ps.product_id
-            LEFT JOIN sales s ON ps.sale_id = s.id AND ${whereClause}
+            LEFT JOIN sales s ON ps.sale_id = s.id ${where ? 'AND ' + where.replace('WHERE ', '') : ''}
             LEFT JOIN categories c ON p.category_id = c.id
             WHERE p.deleted_at IS NULL
             GROUP BY p.id, p.name, c.name
             HAVING times_sold < 5
             ORDER BY times_sold ASC, total_revenue ASC
-            LIMIT ${parseInt(limit)}
+            LIMIT ?
         `;
 
-        return await this.query(query, params);
+        return await this.query(query, [...params, limit]);
     }
 
     async searchProducts(searchTerm, filters = {}, page = 1, limit = 50) {
         const offset = (page - 1) * limit;
         const searchPattern = `%${searchTerm}%`;
 
-        // CORRIGIDO: LIMIT e OFFSET diretos
         const query = `
             SELECT 
                 p.id,
@@ -159,10 +124,10 @@ export class Product extends BaseModel {
                 AND p.deleted_at IS NULL
             GROUP BY p.id, p.name, c.name
             ORDER BY p.name
-            LIMIT ${parseInt(limit)} OFFSET ${parseInt(offset)}
+            LIMIT ? OFFSET ?
         `;
 
-        return await this.query(query, [searchPattern]);
+        return await this.query(query, [searchPattern, limit, offset]);
     }
 }
 

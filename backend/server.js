@@ -1,66 +1,77 @@
-// ========== backend/server.js ==========
 import express from 'express';
-import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import apiRoutes from './routes/api.js';
+
+import config from './config/env.js';
 import database from './config/database.js';
+import logger from './utils/logger.js';
+import errorHandler from './utils/errorHandler.js';
+import { notFoundHandler } from './utils/errorHandler.js';
+import middlewares from './middlewares/index.js';
+import apiRoutes from './routes/api.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = process.env.PORT || 3000;
 
-// Middleware
-app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// ===== CONFIGURAÇÃO DE HANDLERS GLOBAIS =====
+errorHandler.setupGlobalHandlers();
 
-// Serve static files (frontend)
-app.use(express.static(path.join(__dirname, '../frontend')));
+// ===== MIDDLEWARES GLOBAIS =====
+app.use(middlewares.httpLogger);
+app.use(middlewares.securityHeaders);
+app.use(middlewares.corsMiddleware);
+app.use(middlewares.compressionMiddleware);
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(middlewares.sanitizeInputs);
+app.use(middlewares.responseHeaders);
+app.use(middlewares.requestTimeout(30000));
 
-// API routes
+// ===== ASSETS ESTÁTICOS =====
+app.use(express.static(path.join(__dirname, '../frontend'), {
+    maxAge: config.server.isProduction ? '1d' : 0
+}));
+
+// ===== ROTAS API =====
 app.use('/api', apiRoutes);
 
-// Serve frontend for all other routes
+// ===== FRONTEND SPA =====
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, '../frontend/index.html'));
 });
 
-// Error handling
-app.use((err, req, res, next) => {
-    console.error('Server error:', err);
-    res.status(500).json({
-        success: false,
-        error: 'Erro interno do servidor'
-    });
-});
+// ===== ERROR HANDLERS =====
+app.use(notFoundHandler);
+app.use(errorHandler.expressErrorHandler());
 
-// Start server
+// ===== INICIALIZAÇÃO =====
 async function startServer() {
     try {
-        // Test database connection
+        // Conecta ao banco
         await database.connect();
-        console.log('✓ Conexão com MySQL estabelecida');
-
-        app.listen(PORT, () => {
-            console.log('='.repeat(60));
-            console.log('🍔 Restaurant Analytics Dashboard');
-            console.log('='.repeat(60));
-            console.log(`✓ Servidor rodando em http://localhost:${PORT}`);
-            console.log(`✓ API disponível em http://localhost:${PORT}/api`);
-            console.log('='.repeat(60));
+        
+        // Inicia servidor
+        app.listen(config.server.port, () => {
+            logger.info('='.repeat(60));
+            logger.info('🍔 Restaurant Analytics Dashboard');
+            logger.info('='.repeat(60));
+            logger.info(`✅ Servidor rodando em http://localhost:${config.server.port}`);
+            logger.info(`✅ Ambiente: ${config.server.env}`);
+            logger.info(`✅ Database: ${config.database.database}@${config.database.host}`);
+            logger.info(`✅ Cache: ${config.cache.enabled ? 'Ativado' : 'Desativado'}`);
+            logger.info('='.repeat(60));
         });
     } catch (error) {
-        console.error('❌ Erro ao iniciar servidor:', error);
+        logger.error('❌ Erro fatal ao iniciar servidor', error);
         process.exit(1);
     }
 }
 
 // Graceful shutdown
-process.on('SIGINT', async () => {
-    console.log('\n🛑 Encerrando servidor...');
+process.on('SIGTERM', async () => {
+    logger.info('SIGTERM recebido. Encerrando gracefully...');
     await database.close();
     process.exit(0);
 });
