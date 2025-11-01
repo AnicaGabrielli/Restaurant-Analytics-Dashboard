@@ -1,4 +1,4 @@
-// ========== frontend/js/dashboard.js - ATUALIZADO ==========
+// ========== frontend/js/dashboard.js - CARREGAMENTO OTIMIZADO ==========
 
 const API_BASE = '/api';
 
@@ -37,10 +37,11 @@ async function loadDashboard() {
             updateComparison(result.data.comparison);
         } else {
             console.error('Erro ao carregar dashboard:', result.error);
+            showToast('Erro ao carregar dashboard', 'danger');
         }
     } catch (error) {
         console.error('Erro de rede:', error);
-        alert('Erro ao carregar dados. Verifique sua conexão.');
+        showToast('Erro ao carregar dados. Verifique sua conexão.', 'danger');
     } finally {
         hideLoading();
     }
@@ -81,22 +82,30 @@ function updateKPIs(data) {
 function updateComparison(comparison) {
     if (!comparison) return;
 
-    const comparisonBar = document.getElementById('comparisonBar');
-    const comparisonText = document.getElementById('comparisonText');
-
     const growth = parseFloat(comparison.growth);
     const trend = growth >= 0 ? 'crescimento' : 'queda';
     const icon = growth >= 0 ? 'graph-up-arrow' : 'graph-down-arrow';
     const color = growth >= 0 ? 'success' : 'danger';
 
-    comparisonText.innerHTML = `
-        <i class="bi bi-${icon} text-${color}"></i>
-        ${trend} de <strong>${Math.abs(growth).toFixed(1)}%</strong> em relação ao período anterior
-        (R$ ${formatCurrency(comparison.previous.total_revenue)} → R$ ${formatCurrency(comparison.current.total_revenue)})
-    `;
+    // Cria barra de comparação se não existir
+    let comparisonBar = document.getElementById('comparisonBar');
+    if (!comparisonBar) {
+        comparisonBar = document.createElement('div');
+        comparisonBar.id = 'comparisonBar';
+        document.querySelector('#overview').insertBefore(
+            comparisonBar, 
+            document.querySelector('#overview .row')
+        );
+    }
 
-    comparisonBar.style.display = 'flex';
     comparisonBar.className = `alert alert-${color} d-flex justify-content-between align-items-center mb-4`;
+    comparisonBar.innerHTML = `
+        <span>
+            <i class="bi bi-${icon}"></i>
+            ${trend} de <strong>${Math.abs(growth).toFixed(1)}%</strong> em relação ao período anterior
+            (${formatCurrency(comparison.previous.total_revenue)} → ${formatCurrency(comparison.current.total_revenue)})
+        </span>
+    `;
 }
 
 // Atualizar gráficos principais
@@ -120,6 +129,8 @@ async function loadSalesAnalytics() {
             chartManager.createHourlyChart('hourlyChart', byHour);
             chartManager.createWeekdayChart('weekdayChart', byWeekday);
             chartManager.createStoreChart('storeChart', byStore);
+        } else {
+            console.error('Erro em sales analytics:', result.error);
         }
     } catch (error) {
         console.error('Erro ao carregar análise de vendas:', error);
@@ -138,6 +149,8 @@ async function loadProductAnalytics() {
             
             chartManager.createCategoriesChart('categoriesChart', byCategory);
             chartManager.createCustomizedProductsChart('customizedProductsChart', mostCustomized);
+        } else {
+            console.error('Erro em product analytics:', result.error);
         }
     } catch (error) {
         console.error('Erro ao carregar análise de produtos:', error);
@@ -159,6 +172,8 @@ async function loadCustomerAnalytics() {
             
             // Atualizar tabela
             updateTopCustomersTable(topCustomers);
+        } else {
+            console.error('Erro em customer analytics:', result.error);
         }
     } catch (error) {
         console.error('Erro ao carregar análise de clientes:', error);
@@ -211,6 +226,8 @@ async function loadDeliveryAnalytics() {
             // Gráficos
             chartManager.createTopNeighborhoodsChart('topNeighborhoodsChart', topNeighborhoods);
             chartManager.createDeliveryPerformanceChart('deliveryPerformanceChart', byRegion);
+        } else {
+            console.error('Erro em delivery analytics:', result.error);
         }
     } catch (error) {
         console.error('Erro ao carregar análise de delivery:', error);
@@ -233,24 +250,70 @@ async function loadCacheStats() {
     }
 }
 
-// Refresh completo
+// Refresh completo - CARREGAMENTO SEQUENCIAL para evitar esgotar pool
 async function refreshDashboard() {
+    console.log('🔄 Iniciando refresh do dashboard...');
     showLoading();
     
     try {
-        await Promise.all([
-            loadDashboard(),
-            loadSalesAnalytics(),
-            loadProductAnalytics(),
-            loadCustomerAnalytics(),
-            loadDeliveryAnalytics(),
-            loadCacheStats()
-        ]);
+        // Carrega dashboard principal primeiro
+        console.log('📊 1/5 Carregando dashboard...');
+        await loadDashboard();
+        
+        // Pequeno delay para liberar conexões
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Carrega analytics sequencialmente
+        console.log('📈 2/5 Carregando análise de vendas...');
+        await loadSalesAnalytics();
+        
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        console.log('📦 3/5 Carregando análise de produtos...');
+        await loadProductAnalytics();
+        
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        console.log('👥 4/5 Carregando análise de clientes...');
+        await loadCustomerAnalytics();
+        
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        console.log('🚚 5/5 Carregando análise de entregas...');
+        await loadDeliveryAnalytics();
+        
+        // Cache stats por último
+        await loadCacheStats();
+        
+        console.log('✅ Dashboard carregado com sucesso!');
+        showToast('Dashboard atualizado com sucesso!', 'success');
+        
     } catch (error) {
-        console.error('Erro ao atualizar dashboard:', error);
+        console.error('❌ Erro ao atualizar dashboard:', error);
+        showToast('Erro ao atualizar dashboard', 'danger');
     } finally {
         hideLoading();
     }
+}
+
+// Toast helper
+function showToast(message, type = 'info') {
+    document.querySelectorAll('.toast-notification').forEach(t => t.remove());
+    
+    const toast = document.createElement('div');
+    toast.className = `alert alert-${type} toast-notification position-fixed`;
+    toast.style.cssText = 'top: 80px; right: 20px; z-index: 9999; min-width: 250px; animation: slideInRight 0.3s ease;';
+    toast.innerHTML = `
+        <i class="bi bi-${type === 'success' ? 'check-circle' : type === 'danger' ? 'x-circle' : 'info-circle'}"></i>
+        ${message}
+    `;
+    
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.style.animation = 'slideOutRight 0.3s ease';
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
 }
 
 // Smooth scroll para navegação
@@ -280,7 +343,6 @@ window.addEventListener('scroll', () => {
     
     sections.forEach(section => {
         const sectionTop = section.offsetTop;
-        const sectionHeight = section.clientHeight;
         if (scrollY >= (sectionTop - 200)) {
             current = section.getAttribute('id');
         }
@@ -309,6 +371,8 @@ window.addEventListener('beforeunload', () => {
 
 // Inicializar ao carregar página
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('🚀 Inicializando dashboard...');
+    
     // Carrega dashboard inicial
     refreshDashboard();
     

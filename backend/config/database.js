@@ -1,4 +1,4 @@
-// ========== backend/config/database.js - CORRIGIDO ==========
+// ========== backend/config/database.js - POOL OTIMIZADO ==========
 import mysql from 'mysql2/promise';
 import config from './env.js';
 import logger from '../utils/logger.js';
@@ -18,10 +18,14 @@ class Database {
      */
     async connect() {
         if (this.pool) {
+            logger.debug('Pool já existente, retornando pool atual');
             return this.pool;
         }
         
         try {
+            logger.info('🔄 Criando pool de conexões MySQL...');
+
+            // Cria pool (SEM acquireTimeout - não é suportado no mysql2)
             this.pool = mysql.createPool({
                 host: config.database.host,
                 user: config.database.user,
@@ -34,25 +38,24 @@ class Database {
                 timezone: config.database.timezone,
                 enableKeepAlive: true,
                 keepAliveInitialDelay: 10000,
-                connectTimeout: 10000
+                connectTimeout: config.database.connectTimeout
             });
             
-            // Testa conexão
+            // Testa pool
             await this.testConnection();
             
             // Configura event handlers
             this.setupPoolHandlers();
             
             this.isConnected = true;
-            logger.info('✅ Pool de conexões MySQL criado com sucesso', {
-                host: config.database.host,
-                database: config.database.database,
-                connectionLimit: config.database.connectionLimit
+            logger.info('✅ Pool de conexões MySQL criado', {
+                connectionLimit: config.database.connectionLimit,
+                database: config.database.database
             });
             
             return this.pool;
         } catch (error) {
-            logger.error('❌ Erro ao criar pool de conexões MySQL', error);
+            logger.error('❌ Erro ao criar pool MySQL:', error);
             throw new DatabaseError('Falha ao conectar ao banco de dados', error);
         }
     }
@@ -65,9 +68,9 @@ class Database {
             const connection = await this.pool.getConnection();
             await connection.ping();
             connection.release();
-            logger.info('✅ Conexão com MySQL testada com sucesso');
+            logger.info('✅ Pool testado com sucesso');
         } catch (error) {
-            logger.error('❌ Falha no teste de conexão MySQL', error);
+            logger.error('❌ Falha no teste do pool:', error);
             throw error;
         }
     }
@@ -77,30 +80,25 @@ class Database {
      */
     setupPoolHandlers() {
         this.pool.on('acquire', (connection) => {
-            logger.debug('Conexão adquirida do pool', {
-                threadId: connection.threadId
-            });
+            logger.debug(`Conexão ${connection.threadId} adquirida`);
         });
         
         this.pool.on('connection', (connection) => {
-            logger.debug('Nova conexão criada no pool', {
-                threadId: connection.threadId
-            });
+            logger.debug(`Nova conexão ${connection.threadId} criada`);
         });
         
         this.pool.on('enqueue', () => {
-            logger.warn('Aguardando conexão disponível no pool');
+            const stats = this.getPoolStats();
+            logger.warn(`⚠️ Aguardando conexão (Pool: ${stats.totalConnections}/${config.database.connectionLimit}, Fila: ${stats.queuedRequests})`);
         });
         
         this.pool.on('release', (connection) => {
-            logger.debug('Conexão liberada de volta ao pool', {
-                threadId: connection.threadId
-            });
+            logger.debug(`Conexão ${connection.threadId} liberada`);
         });
     }
     
     /**
-     * Executa query com tratamento de erros e logging
+     * Executa query com tratamento de erros
      */
     async query(sql, params = []) {
         if (!this.pool) {
@@ -112,16 +110,24 @@ class Database {
         
         try {
             connection = await this.pool.getConnection();
-            
             const [results] = await connection.execute(sql, params);
-            
             const duration = Date.now() - startTime;
-            logger.query(sql, params, duration);
+            
+            if (duration > 1000) {
+                logger.warn(`Query lenta (${duration}ms): ${sql.substring(0, 100)}`);
+            } else {
+                logger.debug(`Query executada (${duration}ms)`);
+            }
             
             return results;
         } catch (error) {
             const duration = Date.now() - startTime;
-            logger.dbError(error, sql, params);
+            logger.error(`Erro na query (${duration}ms):`, {
+                error: error.message,
+                code: error.code,
+                sql: sql.substring(0, 200),
+                params: params.length
+            });
             
             error.query = sql;
             error.params = params;
@@ -152,12 +158,12 @@ class Database {
             const result = await callback(connection);
             
             await connection.commit();
-            logger.debug('Transação commitada com sucesso');
+            logger.debug('Transação commitada');
             
             return result;
         } catch (error) {
             await connection.rollback();
-            logger.error('Transação revertida devido a erro', error);
+            logger.error('Transação revertida:', error);
             throw error;
         } finally {
             connection.release();
@@ -176,14 +182,10 @@ class Database {
             return {
                 status: 'healthy',
                 responseTime: duration,
-                poolStats: {
-                    totalConnections: this.pool.pool._allConnections.length,
-                    freeConnections: this.pool.pool._freeConnections.length,
-                    queuedRequests: this.pool.pool._connectionQueue.length
-                }
+                poolStats: this.getPoolStats()
             };
         } catch (error) {
-            logger.error('Health check falhou', error);
+            logger.error('Health check falhou:', error);
             return {
                 status: 'unhealthy',
                 error: error.message
@@ -192,7 +194,7 @@ class Database {
     }
     
     /**
-     * Fecha pool de conexões gracefully
+     * Fecha pool gracefully
      */
     async close() {
         if (this.pool) {
@@ -200,9 +202,9 @@ class Database {
                 await this.pool.end();
                 this.pool = null;
                 this.isConnected = false;
-                logger.info('✅ Pool de conexões MySQL encerrado com sucesso');
+                logger.info('✅ Pool MySQL encerrado');
             } catch (error) {
-                logger.error('❌ Erro ao encerrar pool de conexões', error);
+                logger.error('❌ Erro ao encerrar pool:', error);
                 throw error;
             }
         }
@@ -212,14 +214,19 @@ class Database {
      * Retorna estatísticas do pool
      */
     getPoolStats() {
-        if (!this.pool) {
-            return null;
+        if (!this.pool || !this.pool.pool) {
+            return {
+                totalConnections: 0,
+                freeConnections: 0,
+                queuedRequests: 0,
+                isConnected: false
+            };
         }
         
         return {
-            totalConnections: this.pool.pool._allConnections.length,
-            freeConnections: this.pool.pool._freeConnections.length,
-            queuedRequests: this.pool.pool._connectionQueue.length,
+            totalConnections: this.pool.pool._allConnections?.length || 0,
+            freeConnections: this.pool.pool._freeConnections?.length || 0,
+            queuedRequests: this.pool.pool._connectionQueue?.length || 0,
             isConnected: this.isConnected
         };
     }
@@ -234,12 +241,12 @@ export default database;
  * Hook para graceful shutdown
  */
 export const gracefulShutdown = async (signal) => {
-    logger.info(`${signal} recebido. Encerrando conexões do banco...`);
+    logger.info(`${signal} recebido. Encerrando conexões...`);
     try {
         await database.close();
         process.exit(0);
     } catch (error) {
-        logger.error('Erro durante shutdown do banco', error);
+        logger.error('Erro durante shutdown:', error);
         process.exit(1);
     }
 };

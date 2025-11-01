@@ -1,4 +1,4 @@
-// ========== frontend/js/filters.js - MELHORADO ==========
+// ========== frontend/js/filters.js - COM EXPANDIR/OCULTAR ==========
 
 // Estado global de filtros
 const filterState = {
@@ -21,6 +21,9 @@ let filterOptions = {
     statuses: []
 };
 
+// Estado de expansão dos filtros
+let filtersExpanded = true;
+
 /**
  * Inicializa sistema de filtros
  */
@@ -41,6 +44,91 @@ async function initFilters() {
     // Event listeners
     document.getElementById('filterPeriod').addEventListener('change', handlePeriodChange);
     document.getElementById('searchInput').addEventListener('keyup', handleSearchKeyup);
+    
+    // Botão de expandir/ocultar
+    setupToggleButton();
+}
+
+/**
+ * Configura botão de expandir/ocultar filtros
+ */
+function setupToggleButton() {
+    const filterBar = document.querySelector('.filter-bar');
+    
+    // Cria botão toggle
+    const toggleBtn = document.createElement('button');
+    toggleBtn.className = 'btn btn-sm btn-outline-secondary position-absolute';
+    toggleBtn.style.cssText = 'top: 10px; right: 10px; z-index: 1001;';
+    toggleBtn.innerHTML = '<i class="bi bi-chevron-up"></i>';
+    toggleBtn.title = 'Expandir/Ocultar Filtros';
+    toggleBtn.onclick = toggleFilters;
+    
+    // Adiciona botão ao filter-bar
+    filterBar.style.position = 'relative';
+    filterBar.appendChild(toggleBtn);
+    
+    // Salva referência global
+    window.filterToggleBtn = toggleBtn;
+}
+
+/**
+ * Alterna expansão dos filtros
+ */
+function toggleFilters() {
+    const filterContent = document.querySelector('.filter-bar .container-fluid');
+    const toggleBtn = window.filterToggleBtn;
+    
+    filtersExpanded = !filtersExpanded;
+    
+    if (filtersExpanded) {
+        // Expandir
+        filterContent.style.display = 'block';
+        toggleBtn.innerHTML = '<i class="bi bi-chevron-up"></i>';
+        toggleBtn.title = 'Ocultar Filtros';
+        
+        // Animação suave
+        filterContent.style.opacity = '0';
+        filterContent.style.transform = 'translateY(-10px)';
+        
+        setTimeout(() => {
+            filterContent.style.transition = 'all 0.3s ease';
+            filterContent.style.opacity = '1';
+            filterContent.style.transform = 'translateY(0)';
+        }, 10);
+    } else {
+        // Ocultar
+        filterContent.style.transition = 'all 0.3s ease';
+        filterContent.style.opacity = '0';
+        filterContent.style.transform = 'translateY(-10px)';
+        
+        setTimeout(() => {
+            filterContent.style.display = 'none';
+            toggleBtn.innerHTML = '<i class="bi bi-chevron-down"></i>';
+            toggleBtn.title = 'Expandir Filtros';
+        }, 300);
+    }
+    
+    // Salva preferência no localStorage
+    localStorage.setItem('filtersExpanded', filtersExpanded);
+}
+
+/**
+ * Restaura estado de expansão do localStorage
+ */
+function restoreFilterState() {
+    const saved = localStorage.getItem('filtersExpanded');
+    if (saved !== null) {
+        filtersExpanded = saved === 'true';
+        if (!filtersExpanded) {
+            // Aplica estado oculto sem animação
+            const filterContent = document.querySelector('.filter-bar .container-fluid');
+            const toggleBtn = window.filterToggleBtn;
+            
+            filterContent.style.display = 'none';
+            toggleBtn.innerHTML = '<i class="bi bi-chevron-down"></i>';
+            toggleBtn.title = 'Expandir Filtros';
+        }
+    }
 }
 
 /**
@@ -76,14 +164,22 @@ function handlePeriodChange(e) {
     const customDates = document.querySelectorAll('.custom-dates');
     
     if (period === 'custom') {
-        customDates.forEach(el => el.style.display = 'block');
+        customDates.forEach(el => {
+            el.style.display = 'block';
+            el.style.animation = 'slideIn 0.3s ease';
+        });
     } else {
-        customDates.forEach(el => el.style.display = 'none');
+        customDates.forEach(el => {
+            el.style.animation = 'slideOut 0.3s ease';
+            setTimeout(() => {
+                el.style.display = 'none';
+            }, 300);
+        });
     }
 }
 
 /**
- * Aplica filtros selecionados - MELHORADO
+ * Aplica filtros selecionados
  */
 async function applyFilters() {
     // Coleta valores dos filtros
@@ -93,29 +189,44 @@ async function applyFilters() {
     filterState.startDate = period === 'custom' ? document.getElementById('filterStartDate').value : null;
     filterState.endDate = period === 'custom' ? document.getElementById('filterEndDate').value : null;
     
-    // Canais (múltipla seleção) - CORRIGIDO
+    // Validação de datas
+    if (period === 'custom') {
+        if (!filterState.startDate || !filterState.endDate) {
+            alert('Por favor, selecione as datas de início e fim');
+            return;
+        }
+        if (new Date(filterState.startDate) > new Date(filterState.endDate)) {
+            alert('Data de início não pode ser maior que data de fim');
+            return;
+        }
+    }
+    
+    // Canais (múltipla seleção)
     const channelsSelect = document.getElementById('filterChannels');
     filterState.channelIds = Array.from(channelsSelect.selectedOptions)
         .map(opt => parseInt(opt.value))
         .filter(v => !isNaN(v));
     
-    // Lojas (múltipla seleção) - CORRIGIDO
+    // Lojas (múltipla seleção)
     const storesSelect = document.getElementById('filterStores');
     filterState.storeIds = Array.from(storesSelect.selectedOptions)
         .map(opt => parseInt(opt.value))
         .filter(v => !isNaN(v));
     
-    // Status - CORRIGIDO
+    // Status
     const status = document.getElementById('filterStatus').value;
     filterState.status = status || 'COMPLETED';
 
-    console.log('Filtros aplicados:', filterState);
+    console.log('✅ Filtros aplicados:', filterState);
 
     // Atualiza badges de filtros ativos
     updateActiveFiltersBadges();
 
     // Recarrega dashboard com filtros
     await refreshDashboard();
+    
+    // Feedback visual
+    showToast('Filtros aplicados com sucesso!', 'success');
 }
 
 /**
@@ -146,10 +257,13 @@ async function clearFilters() {
     // Limpa badges
     document.getElementById('activeFilters').innerHTML = '';
 
-    console.log('Filtros limpos');
+    console.log('🧹 Filtros limpos');
 
     // Recarrega dashboard
     await refreshDashboard();
+    
+    // Feedback visual
+    showToast('Filtros limpos', 'info');
 }
 
 /**
@@ -186,10 +300,6 @@ function updateActiveFiltersBadges() {
 
     // Canais
     if (filterState.channelIds.length > 0) {
-        const channelNames = filterState.channelIds
-            .map(id => filterOptions.channels.find(c => c.id == id)?.name)
-            .filter(Boolean)
-            .join(', ');
         badges.push({
             label: 'Canais',
             value: `${filterState.channelIds.length} selecionado(s)`,
@@ -208,11 +318,13 @@ function updateActiveFiltersBadges() {
 
     // Status
     if (filterState.status && filterState.status !== '') {
-        const statusLabel = filterState.status === 'COMPLETED' ? 'Completo' : 'Cancelado';
+        const statusLabel = filterState.status === 'COMPLETED' ? 'Completo' : 
+                           filterState.status === 'CANCELLED' ? 'Cancelado' : 'Todos';
         badges.push({
             label: 'Status',
             value: statusLabel,
-            color: filterState.status === 'COMPLETED' ? 'success' : 'danger'
+            color: filterState.status === 'COMPLETED' ? 'success' : 
+                   filterState.status === 'CANCELLED' ? 'danger' : 'secondary'
         });
     }
 
@@ -234,7 +346,7 @@ function updateActiveFiltersBadges() {
 }
 
 /**
- * Constrói query string dos filtros - CORRIGIDO
+ * Constrói query string dos filtros
  */
 function buildFilterQueryString() {
     const params = new URLSearchParams();
@@ -282,7 +394,7 @@ async function performSearch() {
     const searchType = document.getElementById('searchType').value;
 
     if (searchTerm.length < 2) {
-        alert('Digite pelo menos 2 caracteres para buscar');
+        showToast('Digite pelo menos 2 caracteres para buscar', 'warning');
         return;
     }
 
@@ -299,11 +411,11 @@ async function performSearch() {
             displaySearchResults(result.data, searchType);
         } else {
             console.error('Erro na busca:', result.error);
-            alert('Erro na busca: ' + result.error);
+            showToast(`Erro na busca: ${result.error}`, 'danger');
         }
     } catch (error) {
         console.error('Erro de rede na busca:', error);
-        alert('Erro ao realizar busca. Verifique o console.');
+        showToast('Erro ao realizar busca', 'danger');
     } finally {
         hideLoading();
     }
@@ -465,17 +577,40 @@ async function exportData(format) {
             window.URL.revokeObjectURL(url);
             document.body.removeChild(a);
 
-            alert(`Exportação de ${exportType} concluída! Arquivo baixado.`);
+            showToast(`Exportação de ${exportType} concluída!`, 'success');
         } else {
             const error = await response.json();
-            alert(`Erro na exportação: ${error.message || error.error}`);
+            showToast(`Erro na exportação: ${error.message || error.error}`, 'danger');
         }
     } catch (error) {
         console.error('Erro na exportação:', error);
-        alert('Erro ao exportar dados. Verifique o console.');
+        showToast('Erro ao exportar dados', 'danger');
     } finally {
         hideLoading();
     }
+}
+
+/**
+ * Mostra toast de feedback
+ */
+function showToast(message, type = 'info') {
+    // Remove toasts antigos
+    document.querySelectorAll('.toast-notification').forEach(t => t.remove());
+    
+    const toast = document.createElement('div');
+    toast.className = `alert alert-${type} toast-notification position-fixed`;
+    toast.style.cssText = 'top: 80px; right: 20px; z-index: 9999; min-width: 250px; animation: slideInRight 0.3s ease;';
+    toast.innerHTML = `
+        <i class="bi bi-${type === 'success' ? 'check-circle' : type === 'danger' ? 'x-circle' : 'info-circle'}"></i>
+        ${message}
+    `;
+    
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.style.animation = 'slideOutRight 0.3s ease';
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
 }
 
 /**
@@ -496,4 +631,11 @@ function formatDateTime(datetimeString) {
 }
 
 // Inicializa ao carregar
-document.addEventListener('DOMContentLoaded', initFilters);
+document.addEventListener('DOMContentLoaded', () => {
+    initFilters();
+    
+    // Restaura estado de expansão após setup
+    setTimeout(() => {
+        restoreFilterState();
+    }, 100);
+});

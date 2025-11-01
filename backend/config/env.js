@@ -1,4 +1,4 @@
-// ========== backend/config/env.js - POOL AUMENTADO ==========
+// ========== backend/config/env.js - CORRIGIDO ==========
 import dotenv from 'dotenv';
 import Joi from 'joi';
 import path from 'path';
@@ -15,12 +15,14 @@ const envSchema = Joi.object({
     // Database
     DB_HOST: Joi.string().required(),
     DB_USER: Joi.string().required(),
-    DB_PASSWORD: Joi.string().allow('').required(),
+    DB_PASSWORD: Joi.string().allow('').optional().default(''),
     DB_NAME: Joi.string().required(),
     DB_PORT: Joi.number().default(3306),
-    DB_CONNECTION_LIMIT: Joi.number().default(25), // AUMENTADO de 10 para 25
-    DB_QUEUE_LIMIT: Joi.number().default(0),
-    DB_WAIT_FOR_CONNECTIONS: Joi.boolean().default(true),
+    
+    // Connection Pool (SEM prefixo DB_ para evitar conflito)
+    CONNECTION_LIMIT: Joi.number().default(10),
+    QUEUE_LIMIT: Joi.number().default(0),
+    WAIT_FOR_CONNECTIONS: Joi.boolean().default(true),
     
     // Server
     PORT: Joi.number().default(3000),
@@ -55,6 +57,10 @@ const envSchema = Joi.object({
 const { error, value: validatedEnv } = envSchema.validate(process.env);
 
 if (error) {
+    console.error('❌ Erro na validação das variáveis de ambiente:');
+    error.details.forEach(detail => {
+        console.error(`   - ${detail.message}`);
+    });
     throw new Error(`Erro na validação das variáveis de ambiente: ${error.message}`);
 }
 
@@ -66,10 +72,14 @@ const config = {
         password: validatedEnv.DB_PASSWORD,
         database: validatedEnv.DB_NAME,
         port: validatedEnv.DB_PORT,
-        connectionLimit: validatedEnv.DB_CONNECTION_LIMIT,
-        queueLimit: validatedEnv.DB_QUEUE_LIMIT,
-        waitForConnections: validatedEnv.DB_WAIT_FOR_CONNECTIONS,
-        timezone: '+00:00'
+        connectionLimit: validatedEnv.CONNECTION_LIMIT,
+        queueLimit: validatedEnv.QUEUE_LIMIT,
+        waitForConnections: validatedEnv.WAIT_FOR_CONNECTIONS,
+        timezone: '+00:00',
+        connectTimeout: 30000, // 30 segundos
+        acquireTimeout: 30000,
+        multipleStatements: false,
+        namedPlaceholders: false
     },
     
     server: {
@@ -119,8 +129,10 @@ if (config.server.isDevelopment) {
     console.log('📋 Configuração carregada:');
     console.log(`   - Ambiente: ${config.server.env}`);
     console.log(`   - Porta: ${config.server.port}`);
-    console.log(`   - Database: ${config.database.database}@${config.database.host}`);
+    console.log(`   - Database: ${config.database.database}@${config.database.host}:${config.database.port}`);
+    console.log(`   - Database User: ${config.database.user}`);
     console.log(`   - Pool Conexões: ${config.database.connectionLimit}`);
+    console.log(`   - Connect Timeout: ${config.database.connectTimeout}ms`);
     console.log(`   - Cache: ${config.cache.enabled ? 'Ativado' : 'Desativado'}`);
     console.log(`   - Log Level: ${config.logging.level}`);
 }

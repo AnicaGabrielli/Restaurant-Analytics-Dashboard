@@ -7,11 +7,18 @@
   "scripts": {
     "start": "node backend/server.js",
     "dev": "node --watch backend/server.js",
+    "debug": "node debug-connection.js",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "lint": "eslint backend/**/*.js",
-    "db:create": "node backend/scripts/createDatabase.js",
-    "db:seed": "python database/generate_data_mysql.py",
-    "db:indexes": "node backend/scripts/createIndexes.js"
+    "db:create": "mysql -u root -p -e \"CREATE DATABASE IF NOT EXISTS challenge_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;\"",
+    "db:schema": "mysql -u root -p challenge_db < database/schema-mysql.sql",
+    "db:indexes": "mysql -u root -p challenge_db < database/indexes.sql",
+    "db:seed": "python3 database/generate_data_mysql.py",
+    "db:setup": "npm run db:create && npm run db:schema && npm run db:indexes",
+    "logs": "tail -f logs/app.log",
+    "logs:error": "tail -f logs/error.log",
+    "clean": "rm -rf node_modules package-lock.json logs/*.log",
+    "reinstall": "npm run clean && npm install"
   },
   "keywords": [
     "restaurant",
