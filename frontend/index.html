@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Restaurant Analytics Dashboard</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary-food sticky-top">
+        <div class="container-fluid">
+            <a class="navbar-brand d-flex align-items-center" href="/">
+                <i class="bi bi-shop fs-3 me-2"></i>
+                <span class="fs-4 fw-bold">Restaurant Analytics</span>
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="#overview">
+                            <i class="bi bi-speedometer2"></i> Visão Geral
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#sales">
+                            <i class="bi bi-graph-up"></i> Vendas
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#products">
+                            <i class="bi bi-box-seam"></i> Produtos
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#customers">
+                            <i class="bi bi-people"></i> Clientes
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#delivery">
+                            <i class="bi bi-truck"></i> Entregas
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="spinner-border text-warning" role="status" style="width: 3rem; height: 3rem;">
+            <span class="visually-hidden">Carregando...</span>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <main class="container-fluid py-4">
+        
+        <!-- Overview Section -->
+        <section id="overview" class="mb-5">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2 class="section-title">
+                    <i class="bi bi-speedometer2 text-warning"></i>
+                    Visão Geral
+                </h2>
+                <button class="btn btn-outline-primary" onclick="refreshDashboard()">
+                    <i class="bi bi-arrow-clockwise"></i> Atualizar
+                </button>
+            </div>
+
+            <!-- KPI Cards -->
+            <div class="row g-4 mb-4">
+                <div class="col-md-3">
+                    <div class="kpi-card">
+                        <div class="kpi-icon bg-success-soft">
+                            <i class="bi bi-currency-dollar text-success"></i>
+                        </div>
+                        <div class="kpi-content">
+                            <div class="kpi-label">Faturamento Total</div>
+                            <div class="kpi-value" id="totalRevenue">R$ 0,00</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="kpi-card">
+                        <div class="kpi-icon bg-primary-soft">
+                            <i class="bi bi-receipt text-primary"></i>
+                        </div>
+                        <div class="kpi-content">
+                            <div class="kpi-label">Total de Vendas</div>
+                            <div class="kpi-value" id="totalSales">0</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="kpi-card">
+                        <div class="kpi-icon bg-warning-soft">
+                            <i class="bi bi-tag text-warning"></i>
+                        </div>
+                        <div class="kpi-content">
+                            <div class="kpi-label">Ticket Médio</div>
+                            <div class="kpi-value" id="avgTicket">R$ 0,00</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="kpi-card">
+                        <div class="kpi-icon bg-info-soft">
+                            <i class="bi bi-clock-history text-info"></i>
+                        </div>
+                        <div class="kpi-content">
+                            <div class="kpi-label">Tempo Médio Produção</div>
+                            <div class="kpi-value" id="avgProduction">0 min</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts Row 1 -->
+            <div class="row g-4">
+                <div class="col-lg-8">
+                    <div class="chart-card">
+                        <h5 class="chart-title">
+                            <i class="bi bi-graph-up"></i>
+                            Vendas por Período (Últimos 30 Dias)
+                        </h5>
+                        <canvas id="salesTrendChart"></canvas>
+                    </div>
+                </div>
+                <div class="col-lg-4">
+                    <div class="chart-card">
+                        <h5 class="chart-title">
+                            <i class="bi bi-pie-chart"></i>
+                            Vendas por Canal
+                        </h5>
+                        <canvas id="channelChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Sales Section -->
+        <section id="sales" class="mb-5">
+            <h2 class="section-title">
+                <i class="bi bi-graph-up text-primary"></i>
+                Análise de Vendas
+            </h2>
+            
+            <div class="row g-4">
+                <div class="col-lg-6">
+                    <div class="chart-card">
+                        <h5 class="chart-title">
+                            <i class="bi bi-clock"></i>
+                            Vendas por Hora do Dia
+                        </h5>
+                        <canvas id="hourlyChart"></canvas>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="chart-card">
+                        <h5 class="chart-title">
+                            <i class="bi bi-calendar-week"></i>
+                            Vendas por Dia da Semana
+                        </h5>
+                        <canvas id="weekdayChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row g-4 mt-1">
+                <div class="col-lg-12">
+                    <div class="chart-card">
+                        <h5 class="chart-title">
+                            <i class="bi bi-shop"></i>
+                            Performance por Loja (Top 15)
+                        </h5>
+                        <canvas id="storeChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Products Section -->
+        <section id="products" class="mb-5">
+            <h2 class="section-title">
+                <i class="bi bi-box-seam text-success"></i>
+                Análise de Produtos
+            </h2>
+            
+            <div class="row g-4">
+                <div class="col-lg-8">
+                    <div class="chart-card">
+                        <h5 class="chart-title">
+                            <i class="bi bi-trophy"></i>
+                            Top 20 Produtos Mais Vendidos
+                        </h5>
+                        <canvas id="topProductsChart"></canvas>
+                    </div>
+                </div>
+                <div class="col-lg-4">
+                    <div class="chart-card">
+                        <h5 class="chart-title">
+                            <i class="bi bi-grid"></i>
+                            Vendas por Categoria
+                        </h5>
+                        <canvas id="categoriesChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row g-4 mt-1">
+                <div class="col-lg-6">
+                    <div class="chart-card">
+                        <h5 class="chart-title">
+                            <i class="bi bi-sliders"></i>
+                            Top 10 Complementos Mais Adicionados
+                        </h5>
+                        <canvas id="topItemsChart"></canvas>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="chart-card">
+                        <h5 class="chart-title">
+                            <i class="bi bi-tools"></i>
+                            Produtos Mais Customizados
+                        </h5>
+                        <canvas id="customizedProductsChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Customers Section -->
+        <section id="customers" class="mb-5">
+            <h2 class="section-title">
+                <i class="bi bi-people text-info"></i>
+                Análise de Clientes
+            </h2>
+            
+            <div class="row g-4">
+                <div class="col-lg-4">
+                    <div class="chart-card">
+                        <h5 class="chart-title">
+                            <i class="bi bi-pie-chart"></i>
+                            Novos vs Recorrentes
+                        </h5>
+                        <canvas id="customerTypeChart"></canvas>
+                    </div>
+                </div>
+                <div class="col-lg-8">
+                    <div class="chart-card">
+                        <h5 class="chart-title">
+                            <i class="bi bi-graph-up-arrow"></i>
+                            Segmentação por Frequência de Compra
+                        </h5>
+                        <canvas id="retentionChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row g-4 mt-1">
+                <div class="col-lg-12">
+                    <div class="chart-card">
+                        <h5 class="chart-title">
+                            <i class="bi bi-star"></i>
+                            Top 15 Melhores Clientes
+                        </h5>
+                        <div class="table-responsive">
+                            <table class="table table-hover" id="topCustomersTable">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Cliente</th>
+                                        <th>Email</th>
+                                        <th>Total Compras</th>
+                                        <th>Valor Total</th>
+                                        <th>Ticket Médio</th>
+                                        <th>Última Compra</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Delivery Section -->
+        <section id="delivery" class="mb-5">
+            <h2 class="section-title">
+                <i class="bi bi-truck text-danger"></i>
+                Análise de Entregas
+            </h2>
+            
+            <!-- Delivery KPIs -->
+            <div class="row g-4 mb-4">
+                <div class="col-md-3">
+                    <div class="kpi-card">
+                        <div class="kpi-icon bg-danger-soft">
+                            <i class="bi bi-truck text-danger"></i>
+                        </div>
+                        <div class="kpi-content">
+                            <div class="kpi-label">Total Entregas</div>
+                            <div class="kpi-value" id="totalDeliveries">0</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="kpi-card">
+                        <div class="kpi-icon bg-warning-soft">
+                            <i class="bi bi-clock text-warning"></i>
+                        </div>
+                        <div class="kpi-content">
+                            <div class="kpi-label">Tempo Médio</div>
+                            <div class="kpi-value" id="avgDeliveryTime">0 min</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="kpi-card">
+                        <div class="kpi-icon bg-success-soft">
+                            <i class="bi bi-currency-dollar text-success"></i>
+                        </div>
+                        <div class="kpi-content">
+                            <div class="kpi-label">Taxa Média</div>
+                            <div class="kpi-value" id="avgDeliveryFee">R$ 0,00</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="kpi-card">
+                        <div class="kpi-icon bg-info-soft">
+                            <i class="bi bi-cash-stack text-info"></i>
+                        </div>
+                        <div class="kpi-content">
+                            <div class="kpi-label">Receita Taxas</div>
+                            <div class="kpi-value" id="totalDeliveryRevenue">R$ 0,00</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row g-4">
+                <div class="col-lg-6">
+                    <div class="chart-card">
+                        <h5 class="chart-title">
+                            <i class="bi bi-geo-alt"></i>
+                            Top 15 Bairros com Mais Pedidos
+                        </h5>
+                        <canvas id="topNeighborhoodsChart"></canvas>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="chart-card">
+                        <h5 class="chart-title">
+                            <i class="bi bi-speedometer"></i>
+                            Performance de Entrega por Região (Top 20)
+                        </h5>
+                        <canvas id="deliveryPerformanceChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-dark text-white text-center py-4 mt-5">
+        <div class="container">
+            <p class="mb-0">
+                <i class="bi bi-code-slash"></i> 
+                Restaurant Analytics Dashboard • Desenvolvido para God Level Coder Challenge
+            </p>
+            <small class="text-muted">Powered by Node.js, MySQL & Chart.js</small>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="js/charts.js"></script>
+    <script src="js/dashboard.js"></script>
+</body>
+</html>
