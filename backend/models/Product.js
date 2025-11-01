@@ -1,134 +1,137 @@
-// ========== backend/models/Product.js - CORRIGIDO ==========
-import { BaseModel } from './BaseModel.js';
+import db from '../config/database.js';
 
-export class Product extends BaseModel {
-    constructor() {
-        super('products');
+class Product {
+  static async getTopProducts(filters = {}, limit = 20) {
+    const whereConditions = this.buildWhereClause(filters);
+    
+    const query = `
+      SELECT 
+        p.id,
+        p.name as product_name,
+        c.name as category_name,
+        COUNT(ps.id) as times_sold,
+        SUM(ps.quantity) as total_quantity,
+        SUM(ps.total_price) as total_revenue,
+        AVG(ps.total_price / ps.quantity) as avg_price
+      FROM products p
+      JOIN product_sales ps ON ps.product_id = p.id
+      JOIN sales s ON s.id = ps.sale_id
+      LEFT JOIN categories c ON c.id = p.category_id
+      ${whereConditions.clause}
+      AND s.sale_status_desc = 'COMPLETED'
+      GROUP BY p.id, p.name, c.name
+      ORDER BY total_revenue DESC
+      ${limit ? `LIMIT ${limit}` : ''}
+    `;
+    
+    const [rows] = await db.execute(query, whereConditions.params);
+    return rows;
+  }
+
+  static async getProductsByCategory(filters = {}) {
+    const whereConditions = this.buildWhereClause(filters);
+    
+    const query = `
+      SELECT 
+        c.name as category_name,
+        COUNT(DISTINCT p.id) as product_count,
+        SUM(ps.quantity) as total_quantity,
+        SUM(ps.total_price) as total_revenue
+      FROM categories c
+      JOIN products p ON p.category_id = c.id
+      JOIN product_sales ps ON ps.product_id = p.id
+      JOIN sales s ON s.id = ps.sale_id
+      ${whereConditions.clause}
+      AND s.sale_status_desc = 'COMPLETED'
+      AND c.type = 'P'
+      GROUP BY c.id, c.name
+      ORDER BY total_revenue DESC
+    `;
+    
+    const [rows] = await db.execute(query, whereConditions.params);
+    return rows;
+  }
+
+  static async getTopCustomizations(filters = {}, limit = 20) {
+    const whereConditions = this.buildWhereClause(filters);
+    
+    const query = `
+      SELECT 
+        i.name as item_name,
+        COUNT(*) as times_added,
+        SUM(ips.additional_price) as revenue_generated,
+        AVG(ips.additional_price) as avg_price
+      FROM item_product_sales ips
+      JOIN items i ON i.id = ips.item_id
+      JOIN product_sales ps ON ps.id = ips.product_sale_id
+      JOIN sales s ON s.id = ps.sale_id
+      ${whereConditions.clause}
+      AND s.sale_status_desc = 'COMPLETED'
+      GROUP BY i.id, i.name
+      ORDER BY times_added DESC
+      ${limit ? `LIMIT ${limit}` : ''}
+    `;
+    
+    const [rows] = await db.execute(query, whereConditions.params);
+    return rows;
+  }
+
+  static async getProductPerformanceByChannel(filters = {}) {
+    const whereConditions = this.buildWhereClause(filters);
+    
+    const query = `
+      SELECT 
+        p.name as product_name,
+        ch.name as channel_name,
+        COUNT(ps.id) as times_sold,
+        SUM(ps.total_price) as revenue
+      FROM products p
+      JOIN product_sales ps ON ps.product_id = p.id
+      JOIN sales s ON s.id = ps.sale_id
+      JOIN channels ch ON ch.id = s.channel_id
+      ${whereConditions.clause}
+      AND s.sale_status_desc = 'COMPLETED'
+      GROUP BY p.id, p.name, ch.id, ch.name
+      ORDER BY revenue DESC
+    `;
+    
+    const [rows] = await db.execute(query, whereConditions.params);
+    return rows;
+  }
+
+  static buildWhereClause(filters) {
+    const conditions = [];
+    const params = [];
+
+    if (filters.startDate) {
+      conditions.push('s.created_at >= ?');
+      params.push(filters.startDate);
     }
 
-    async getTopSellingProducts(limit = 10, filters = {}) {
-        // Importa filterService aqui para evitar circular dependency
-        const { default: filterService } = await import('../services/FilterService.js');
-        const { where, params } = filterService.buildWhereClause(filters, 's');
-
-        const query = `
-            SELECT 
-                p.id,
-                p.name as product_name,
-                c.name as category_name,
-                COUNT(ps.id) as times_sold,
-                COALESCE(SUM(ps.quantity), 0) as total_quantity,
-                COALESCE(SUM(ps.total_price), 0) as total_revenue,
-                COALESCE(AVG(ps.base_price), 0) as avg_price
-            FROM ${this.tableName} p
-            INNER JOIN product_sales ps ON p.id = ps.product_id
-            INNER JOIN sales s ON ps.sale_id = s.id
-            LEFT JOIN categories c ON p.category_id = c.id
-            ${where}
-            GROUP BY p.id, p.name, c.name
-            ORDER BY total_revenue DESC
-            LIMIT ?
-        `;
-
-        return await this.query(query, [...params, limit]);
+    if (filters.endDate) {
+      conditions.push('s.created_at <= ?');
+      params.push(filters.endDate);
     }
 
-    async getProductsByCategory(filters = {}) {
-        const { default: filterService } = await import('../services/FilterService.js');
-        const { where, params } = filterService.buildWhereClause(filters, 's');
-
-        const query = `
-            SELECT 
-                c.name as category_name,
-                COUNT(DISTINCT p.id) as product_count,
-                COUNT(ps.id) as times_sold,
-                COALESCE(SUM(ps.total_price), 0) as total_revenue
-            FROM categories c
-            LEFT JOIN ${this.tableName} p ON c.id = p.category_id
-            LEFT JOIN product_sales ps ON p.id = ps.product_id
-            LEFT JOIN sales s ON ps.sale_id = s.id
-            ${where ? where.replace('WHERE', 'WHERE c.type = "P" AND') : 'WHERE c.type = "P"'}
-            GROUP BY c.id, c.name
-            HAVING total_revenue > 0
-            ORDER BY total_revenue DESC
-        `;
-
-        return await this.query(query, params);
+    if (filters.storeId) {
+      conditions.push('s.store_id = ?');
+      params.push(filters.storeId);
     }
 
-    async getMostCustomizedProducts(limit = 10, filters = {}) {
-        const { default: filterService } = await import('../services/FilterService.js');
-        const { where, params } = filterService.buildWhereClause(filters, 's');
-
-        const query = `
-            SELECT 
-                p.name as product_name,
-                COUNT(DISTINCT ips.id) as customization_count,
-                COUNT(DISTINCT ps.id) as times_sold,
-                ROUND(COUNT(DISTINCT ips.id) * 100.0 / NULLIF(COUNT(DISTINCT ps.id), 0), 2) as customization_rate
-            FROM ${this.tableName} p
-            INNER JOIN product_sales ps ON p.id = ps.product_id
-            LEFT JOIN item_product_sales ips ON ps.id = ips.product_sale_id
-            INNER JOIN sales s ON ps.sale_id = s.id
-            ${where}
-            GROUP BY p.id, p.name
-            HAVING customization_count > 0
-            ORDER BY customization_rate DESC
-            LIMIT ?
-        `;
-
-        return await this.query(query, [...params, limit]);
+    if (filters.channelId) {
+      conditions.push('s.channel_id = ?');
+      params.push(filters.channelId);
     }
 
-    async getLowPerformingProducts(limit = 10, filters = {}) {
-        const { default: filterService } = await import('../services/FilterService.js');
-        const { where, params } = filterService.buildWhereClause(filters, 's');
-
-        const query = `
-            SELECT 
-                p.id,
-                p.name as product_name,
-                c.name as category_name,
-                COUNT(ps.id) as times_sold,
-                COALESCE(SUM(ps.total_price), 0) as total_revenue
-            FROM ${this.tableName} p
-            LEFT JOIN product_sales ps ON p.id = ps.product_id
-            LEFT JOIN sales s ON ps.sale_id = s.id ${where ? 'AND ' + where.replace('WHERE ', '') : ''}
-            LEFT JOIN categories c ON p.category_id = c.id
-            WHERE p.deleted_at IS NULL
-            GROUP BY p.id, p.name, c.name
-            HAVING times_sold < 5
-            ORDER BY times_sold ASC, total_revenue ASC
-            LIMIT ?
-        `;
-
-        return await this.query(query, [...params, limit]);
+    if (filters.categoryId) {
+      conditions.push('p.category_id = ?');
+      params.push(filters.categoryId);
     }
 
-    async searchProducts(searchTerm, filters = {}, page = 1, limit = 50) {
-        const offset = (page - 1) * limit;
-        const searchPattern = `%${searchTerm}%`;
-
-        const query = `
-            SELECT 
-                p.id,
-                p.name,
-                c.name as category_name,
-                COUNT(ps.id) as times_sold,
-                COALESCE(SUM(ps.total_price), 0) as total_revenue
-            FROM ${this.tableName} p
-            LEFT JOIN categories c ON p.category_id = c.id
-            LEFT JOIN product_sales ps ON p.id = ps.product_id
-            LEFT JOIN sales s ON ps.sale_id = s.id AND s.sale_status_desc = 'COMPLETED'
-            WHERE p.name LIKE ?
-                AND p.deleted_at IS NULL
-            GROUP BY p.id, p.name, c.name
-            ORDER BY p.name
-            LIMIT ? OFFSET ?
-        `;
-
-        return await this.query(query, [searchPattern, limit, offset]);
-    }
+    const clause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    
+    return { clause, params };
+  }
 }
 
 export default Product;

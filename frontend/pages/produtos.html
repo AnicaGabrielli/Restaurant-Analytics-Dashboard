@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Análise de Produtos - Restaurant Analytics</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="../assets/css/styles.css">
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="index.html">
+                <i class="fas fa-utensils me-2"></i>
+                Restaurant Analytics
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a class="nav-link" href="index.html">
+                            <i class="fas fa-chart-line me-1"></i> Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="vendas.html">
+                            <i class="fas fa-shopping-cart me-1"></i> Vendas
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="produtos.html">
+                            <i class="fas fa-hamburger me-1"></i> Produtos
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="comparativo.html">
+                            <i class="fas fa-balance-scale me-1"></i> Comparativo
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Filters -->
+    <div class="container-fluid mt-4">
+        <div class="card filter-card">
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label class="form-label">Período</label>
+                        <select class="form-select" id="periodFilter">
+                            <option value="7">Últimos 7 dias</option>
+                            <option value="30" selected>Últimos 30 dias</option>
+                            <option value="90">Últimos 90 dias</option>
+                            <option value="custom">Personalizado</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2 date-range" style="display: none;">
+                        <label class="form-label">Data Início</label>
+                        <input type="date" class="form-control" id="startDate">
+                    </div>
+                    <div class="col-md-2 date-range" style="display: none;">
+                        <label class="form-label">Data Fim</label>
+                        <input type="date" class="form-control" id="endDate">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Loja</label>
+                        <select class="form-select" id="storeFilter">
+                            <option value="">Todas</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Canal</label>
+                        <select class="form-select" id="channelFilter">
+                            <option value="">Todos</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <button class="btn btn-primary w-100 mt-4" id="applyFilters">
+                            <i class="fas fa-search me-2"></i>Aplicar Filtros
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="container-fluid mt-4">
+        <div class="row g-3">
+            <div class="col-lg-8">
+                <div class="card chart-card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Top 15 Produtos Mais Vendidos</h5>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="topProductsChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-4">
+                <div class="card chart-card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Vendas por Categoria</h5>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="categoryChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tables -->
+    <div class="container-fluid mt-4 mb-5">
+        <div class="row g-3">
+            <div class="col-lg-6">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Top 20 Produtos</h5>
+                        <button class="btn btn-sm btn-success" id="exportProducts">
+                            <i class="fas fa-download me-1"></i>Exportar
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover" id="productsTable">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Produto</th>
+                                        <th>Qtd</th>
+                                        <th>Faturamento</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Top 20 Customizações/Adicionais</h5>
+                        <button class="btn btn-sm btn-success" id="exportCustomizations">
+                            <i class="fas fa-download me-1"></i>Exportar
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover" id="customizationsTable">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Item</th>
+                                        <th>Vezes Adicionado</th>
+                                        <th>Receita</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+    <script type="module">
+        import ApiService from '../assets/js/services/ApiService.js';
+        import { Filters } from '../assets/js/components/Filters.js';
+        import { Charts } from '../assets/js/components/Charts.js';
+        import { formatCurrency, formatNumber, downloadCSV } from '../assets/js/utils/helpers.js';
+
+        const filters = new Filters();
+        const charts = new Charts();
+        let productsData = [];
+        let customizationsData = [];
+
+        async function loadProductsAnalysis() {
+            const currentFilters = filters.getFilters();
+
+            const [productsRes, categoriesRes, customizationsRes] = await Promise.all([
+                ApiService.getTopProducts({ ...currentFilters, limit: 20 }),
+                ApiService.getProductsByCategory(currentFilters),
+                ApiService.getTopCustomizations({ ...currentFilters, limit: 20 })
+            ]);
+
+            if (productsRes.success) {
+                productsData = productsRes.data;
+                updateProductsTable(productsData);
+                createTopProductsChart(productsData.slice(0, 15));
+            }
+
+            if (categoriesRes.success) {
+                createCategoryChart(categoriesRes.data);
+            }
+
+            if (customizationsRes.success) {
+                customizationsData = customizationsRes.data;
+                updateCustomizationsTable(customizationsData);
+            }
+        }
+
+        function createTopProductsChart(products) {
+            charts.createBarChart('topProductsChart',
+                products.map(p => p.product_name.length > 20 ? p.product_name.substring(0, 20) + '...' : p.product_name),
+                [{
+                    label: 'Faturamento (R$)',
+                    data: products.map(p => p.total_revenue),
+                    backgroundColor: 'rgba(216, 67, 21, 0.7)',
+                    borderColor: 'rgba(216, 67, 21, 1)',
+                    borderWidth: 1
+                }]
+            );
+        }
+
+        function createCategoryChart(categories) {
+            const ctx = document.getElementById('categoryChart');
+            const colors = ['#D84315', '#FF6F00', '#558B2F', '#F57C00', '#FBC02D', '#C62828'];
+
+            if (charts.charts.categoryChart) {
+                charts.charts.categoryChart.destroy();
+            }
+
+            charts.charts.categoryChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: categories.map(c => c.category_name),
+                    datasets: [{
+                        data: categories.map(c => c.total_revenue),
+                        backgroundColor: colors,
+                        borderWidth: 2,
+                        borderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateProductsTable(products) {
+            const tbody = document.querySelector('#productsTable tbody');
+            tbody.innerHTML = '';
+            
+            products.forEach((product, index) => {
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>${index + 1}</td>
+                    <td>${product.product_name}</td>
+                    <td>${formatNumber(product.total_quantity)}</td>
+                    <td>${formatCurrency(product.total_revenue)}</td>
+                `;
+            });
+        }
+
+        function updateCustomizationsTable(customizations) {
+            const tbody = document.querySelector('#customizationsTable tbody');
+            tbody.innerHTML = '';
+            
+            customizations.forEach((item, index) => {
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>${index + 1}</td>
+                    <td>${item.item_name}</td>
+                    <td>${formatNumber(item.times_added)}</td>
+                    <td>${formatCurrency(item.revenue_generated)}</td>
+                `;
+            });
+        }
+
+        document.getElementById('exportProducts')?.addEventListener('click', () => {
+            const exportData = productsData.map((p, i) => ({
+                'Posição': i + 1,
+                'Produto': p.product_name,
+                'Quantidade': p.total_quantity,
+                'Faturamento': p.total_revenue
+            }));
+            downloadCSV(exportData, 'top_produtos');
+        });
+
+        document.getElementById('exportCustomizations')?.addEventListener('click', () => {
+            const exportData = customizationsData.map((c, i) => ({
+                'Posição': i + 1,
+                'Item': c.item_name,
+                'Vezes Adicionado': c.times_added,
+                'Receita': c.revenue_generated
+            }));
+            downloadCSV(exportData, 'top_customizacoes');
+        });
+
+        document.addEventListener('filtersApplied', loadProductsAnalysis);
+
+        // Initialize
+        filters.init().then(() => loadProductsAnalysis());
+    </script>
+</body>
+</html>

@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Análise de Vendas - Restaurant Analytics</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="../assets/css/styles.css">
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="index.html">
+                <i class="fas fa-utensils me-2"></i>
+                Restaurant Analytics
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a class="nav-link" href="index.html">
+                            <i class="fas fa-chart-line me-1"></i> Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="vendas.html">
+                            <i class="fas fa-shopping-cart me-1"></i> Vendas
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="produtos.html">
+                            <i class="fas fa-hamburger me-1"></i> Produtos
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="comparativo.html">
+                            <i class="fas fa-balance-scale me-1"></i> Comparativo
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Filters -->
+    <div class="container-fluid mt-4">
+        <div class="card filter-card">
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-2">
+                        <label class="form-label">Período</label>
+                        <select class="form-select" id="periodFilter">
+                            <option value="7">Últimos 7 dias</option>
+                            <option value="30" selected>Últimos 30 dias</option>
+                            <option value="90">Últimos 90 dias</option>
+                            <option value="custom">Personalizado</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2 date-range" style="display: none;">
+                        <label class="form-label">Data Início</label>
+                        <input type="date" class="form-control" id="startDate">
+                    </div>
+                    <div class="col-md-2 date-range" style="display: none;">
+                        <label class="form-label">Data Fim</label>
+                        <input type="date" class="form-control" id="endDate">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Loja</label>
+                        <select class="form-select" id="storeFilter">
+                            <option value="">Todas</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Canal</label>
+                        <select class="form-select" id="channelFilter">
+                            <option value="">Todos</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Agrupar por</label>
+                        <select class="form-select" id="groupByFilter">
+                            <option value="day" selected>Dia</option>
+                            <option value="week">Semana</option>
+                            <option value="month">Mês</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <button class="btn btn-primary w-100 mt-4" id="applyFilters">
+                            <i class="fas fa-search me-2"></i>Aplicar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="container-fluid mt-4">
+        <div class="row g-3">
+            <div class="col-lg-6">
+                <div class="card chart-card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Evolução de Vendas por Período</h5>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="periodChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="card chart-card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Distribuição por Dia da Semana</h5>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="weekdayChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tables -->
+    <div class="container-fluid mt-4 mb-5">
+        <div class="row g-3">
+            <div class="col-lg-6">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Ranking de Lojas</h5>
+                        <button class="btn btn-sm btn-success" id="exportStores">
+                            <i class="fas fa-download me-1"></i>Exportar
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover" id="storesTable">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Loja</th>
+                                        <th>Cidade</th>
+                                        <th>Vendas</th>
+                                        <th>Faturamento</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Ranking de Canais</h5>
+                        <button class="btn btn-sm btn-success" id="exportChannels">
+                            <i class="fas fa-download me-1"></i>Exportar
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover" id="channelsTable">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Canal</th>
+                                        <th>Vendas</th>
+                                        <th>Faturamento</th>
+                                        <th>Ticket Médio</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+    <script type="module">
+        import ApiService from '../assets/js/services/ApiService.js';
+        import { Filters } from '../assets/js/components/Filters.js';
+        import { Charts } from '../assets/js/components/Charts.js';
+        import { formatCurrency, formatNumber, downloadCSV } from '../assets/js/utils/helpers.js';
+
+        const filters = new Filters();
+        const charts = new Charts();
+        let storesData = [];
+        let channelsData = [];
+
+        async function loadSalesAnalysis() {
+            const currentFilters = filters.getFilters();
+            currentFilters.groupBy = document.getElementById('groupByFilter')?.value || 'day';
+
+            const [periodRes, weekdayRes, storesRes, channelsRes] = await Promise.all([
+                ApiService.getSalesByPeriod(currentFilters),
+                ApiService.getWeekdayDistribution(currentFilters),
+                ApiService.getSalesByStore(currentFilters),
+                ApiService.getSalesByChannel(currentFilters)
+            ]);
+
+            if (periodRes.success) {
+                charts.createLineChart('periodChart', 
+                    periodRes.data.map(d => d.period),
+                    periodRes.data.map(d => d.revenue),
+                    'Faturamento'
+                );
+            }
+
+            if (weekdayRes.success) {
+                charts.createWeekdayChart(weekdayRes.data);
+            }
+
+            if (storesRes.success) {
+                storesData = storesRes.data;
+                updateStoresTable(storesData);
+            }
+
+            if (channelsRes.success) {
+                channelsData = channelsRes.data;
+                updateChannelsTable(channelsData);
+            }
+        }
+
+        function updateStoresTable(stores) {
+            const tbody = document.querySelector('#storesTable tbody');
+            tbody.innerHTML = '';
+            
+            stores.forEach((store, index) => {
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>${index + 1}</td>
+                    <td>${store.store_name}</td>
+                    <td>${store.city}</td>
+                    <td>${formatNumber(store.sales_count)}</td>
+                    <td>${formatCurrency(store.revenue)}</td>
+                `;
+            });
+        }
+
+        function updateChannelsTable(channels) {
+            const tbody = document.querySelector('#channelsTable tbody');
+            tbody.innerHTML = '';
+            
+            channels.forEach((channel, index) => {
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>${index + 1}</td>
+                    <td>${channel.channel_name}</td>
+                    <td>${formatNumber(channel.sales_count)}</td>
+                    <td>${formatCurrency(channel.revenue)}</td>
+                    <td>${formatCurrency(channel.avg_ticket)}</td>
+                `;
+            });
+        }
+
+        document.getElementById('exportStores')?.addEventListener('click', () => {
+            const exportData = storesData.map((s, i) => ({
+                'Posição': i + 1,
+                'Loja': s.store_name,
+                'Cidade': s.city,
+                'Vendas': s.sales_count,
+                'Faturamento': s.revenue
+            }));
+            downloadCSV(exportData, 'ranking_lojas');
+        });
+
+        document.getElementById('exportChannels')?.addEventListener('click', () => {
+            const exportData = channelsData.map((c, i) => ({
+                'Posição': i + 1,
+                'Canal': c.channel_name,
+                'Vendas': c.sales_count,
+                'Faturamento': c.revenue,
+                'Ticket Médio': c.avg_ticket
+            }));
+            downloadCSV(exportData, 'ranking_canais');
+        });
+
+        document.addEventListener('filtersApplied', loadSalesAnalysis);
+
+        // Initialize
+        filters.init().then(() => loadSalesAnalysis());
+    </script>
+</body>
+</html>
