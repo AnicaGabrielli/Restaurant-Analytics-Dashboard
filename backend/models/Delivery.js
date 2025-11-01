@@ -80,6 +80,7 @@ export class Delivery extends BaseModel {
             whereClause += ' AND s.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)';
         }
 
+        // CORRIGIDO: LIMIT direto na query
         const query = `
             SELECT 
                 da.city,
@@ -91,15 +92,12 @@ export class Delivery extends BaseModel {
             ${whereClause}
             GROUP BY da.city, da.neighborhood
             ORDER BY delivery_count DESC
-            LIMIT ?
+            LIMIT ${parseInt(limit)}
         `;
 
-        return await this.query(query, [...params, limit]);
+        return await this.query(query, params);
     }
 
-    /**
-     * NOVO: Métricas de performance de entrega
-     */
     async getPerformanceMetrics(filters = {}) {
         let whereClause = 'WHERE s.sale_status_desc = "COMPLETED"';
         let params = [];

@@ -7,9 +7,6 @@ export class Sale extends BaseModel {
         super('sales');
     }
 
-    /**
-     * Total de receita com filtros
-     */
     async getTotalRevenue(filters = {}) {
         const { where, params } = filterService.buildWhereClause(filters);
         
@@ -20,16 +17,12 @@ export class Sale extends BaseModel {
                 COALESCE(AVG(total_amount), 0) as avg_ticket
             FROM ${this.tableName}
             ${where || 'WHERE sale_status_desc = "COMPLETED"'}
-            ${where ? 'AND sale_status_desc = "COMPLETED"' : ''}
         `;
 
         const results = await this.query(query, params);
         return results[0];
     }
 
-    /**
-     * Vendas por período com filtros - CORRIGIDO
-     */
     async getSalesByPeriod(period = 'day', limit = 30, filters = {}) {
         const dateFormat = {
             hour: '%Y-%m-%d %H:00:00',
@@ -41,11 +34,11 @@ export class Sale extends BaseModel {
         const { where, params } = filterService.buildWhereClause(filters);
         const baseWhere = where || 'WHERE sale_status_desc = "COMPLETED"';
 
-        // Calcula dias baseado no período do filtro
         let days = 30;
         if (filters.period === 'last7days') days = 7;
         if (filters.period === 'last90days') days = 90;
 
+        // CORRIGIDO: LIMIT direto
         const query = `
             SELECT 
                 DATE_FORMAT(created_at, ?) as period,
@@ -54,19 +47,15 @@ export class Sale extends BaseModel {
                 COALESCE(AVG(total_amount), 0) as avg_ticket
             FROM ${this.tableName}
             ${baseWhere}
-            ${where ? 'AND sale_status_desc = "COMPLETED"' : ''}
-            AND created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
+            AND created_at >= DATE_SUB(NOW(), INTERVAL ${parseInt(days)} DAY)
             GROUP BY period
             ORDER BY period DESC
-            LIMIT ?
+            LIMIT ${parseInt(limit)}
         `;
 
-        return await this.query(query, [dateFormat, ...params, days, limit]);
+        return await this.query(query, [dateFormat, ...params]);
     }
 
-    /**
-     * Vendas por canal - CORRIGIDO (qualifica created_at)
-     */
     async getSalesByChannel(filters = {}) {
         const { where, params } = filterService.buildWhereClause(filters);
         const baseWhere = where ? where.replace('created_at', 's.created_at') : '';
@@ -81,7 +70,6 @@ export class Sale extends BaseModel {
             FROM ${this.tableName} s
             INNER JOIN channels c ON s.channel_id = c.id
             ${baseWhere || 'WHERE s.sale_status_desc = "COMPLETED"'}
-            ${baseWhere ? 'AND s.sale_status_desc = "COMPLETED"' : ''}
             GROUP BY c.id, c.name, c.type
             ORDER BY revenue DESC
         `;
@@ -89,13 +77,11 @@ export class Sale extends BaseModel {
         return await this.query(query, params);
     }
 
-    /**
-     * Vendas por loja - CORRIGIDO
-     */
     async getSalesByStore(limit = 10, filters = {}) {
         const { where, params } = filterService.buildWhereClause(filters);
         const baseWhere = where ? where.replace('created_at', 's.created_at') : '';
 
+        // CORRIGIDO: LIMIT direto
         const query = `
             SELECT 
                 st.name as store_name,
@@ -106,18 +92,14 @@ export class Sale extends BaseModel {
             FROM ${this.tableName} s
             INNER JOIN stores st ON s.store_id = st.id
             ${baseWhere || 'WHERE s.sale_status_desc = "COMPLETED"'}
-            ${baseWhere ? 'AND s.sale_status_desc = "COMPLETED"' : ''}
             GROUP BY st.id, st.name, st.city
             ORDER BY revenue DESC
-            LIMIT ?
+            LIMIT ${parseInt(limit)}
         `;
 
-        return await this.query(query, [...params, limit]);
+        return await this.query(query, params);
     }
 
-    /**
-     * Vendas por hora do dia - CORRIGIDO
-     */
     async getSalesByHour(filters = {}) {
         const { where, params } = filterService.buildWhereClause(filters);
         const baseWhere = where || 'WHERE sale_status_desc = "COMPLETED"';
@@ -130,7 +112,6 @@ export class Sale extends BaseModel {
                 COALESCE(AVG(total_amount), 0) as avg_ticket
             FROM ${this.tableName}
             ${baseWhere}
-            ${where ? 'AND sale_status_desc = "COMPLETED"' : ''}
             AND created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
             GROUP BY hour
             ORDER BY hour
@@ -139,9 +120,6 @@ export class Sale extends BaseModel {
         return await this.query(query, params);
     }
 
-    /**
-     * Vendas por dia da semana - CORRIGIDO
-     */
     async getSalesByWeekday(filters = {}) {
         const { where, params } = filterService.buildWhereClause(filters);
         const baseWhere = where || 'WHERE sale_status_desc = "COMPLETED"';
@@ -163,7 +141,6 @@ export class Sale extends BaseModel {
                 COALESCE(AVG(total_amount), 0) as avg_ticket
             FROM ${this.tableName}
             ${baseWhere}
-            ${where ? 'AND sale_status_desc = "COMPLETED"' : ''}
             AND created_at >= DATE_SUB(NOW(), INTERVAL 90 DAY)
             GROUP BY weekday, weekday_name
             ORDER BY weekday
@@ -172,9 +149,6 @@ export class Sale extends BaseModel {
         return await this.query(query, params);
     }
 
-    /**
-     * Taxa de cancelamento - CORRIGIDO
-     */
     async getCancellationRate(filters = {}) {
         const { where, params } = filterService.buildWhereClause(filters);
 
@@ -195,9 +169,6 @@ export class Sale extends BaseModel {
         return await this.query(query, [...params, ...params]);
     }
 
-    /**
-     * Tempo médio de produção - CORRIGIDO
-     */
     async getAverageProductionTime(filters = {}) {
         const { where, params } = filterService.buildWhereClause(filters);
         const baseWhere = where || 'WHERE sale_status_desc = "COMPLETED"';
@@ -209,7 +180,6 @@ export class Sale extends BaseModel {
                 COALESCE(MAX(production_seconds / 60), 0) as max_production_minutes
             FROM ${this.tableName}
             ${baseWhere}
-            ${where ? 'AND sale_status_desc = "COMPLETED"' : ''}
             AND production_seconds IS NOT NULL
         `;
 
@@ -217,9 +187,6 @@ export class Sale extends BaseModel {
         return results[0];
     }
 
-    /**
-     * Tempo médio de entrega - CORRIGIDO
-     */
     async getAverageDeliveryTime(filters = {}) {
         const { where, params } = filterService.buildWhereClause(filters);
         const baseWhere = where || 'WHERE sale_status_desc = "COMPLETED"';
@@ -231,7 +198,6 @@ export class Sale extends BaseModel {
                 COALESCE(MAX(delivery_seconds / 60), 0) as max_delivery_minutes
             FROM ${this.tableName}
             ${baseWhere}
-            ${where ? 'AND sale_status_desc = "COMPLETED"' : ''}
             AND delivery_seconds IS NOT NULL
         `;
 
@@ -239,15 +205,13 @@ export class Sale extends BaseModel {
         return results[0];
     }
 
-    /**
-     * Busca vendas com filtros - CORRIGIDO (qualifica created_at)
-     */
     async getFilteredSales(filters = {}, page = 1, limit = 50) {
         const { where, params } = filterService.buildWhereClause(filters);
-        const { limit: limitClause } = filterService.buildLimitClause(page, limit);
+        const offset = (page - 1) * limit;
         
         const baseWhere = where ? where.replace('created_at', 's.created_at') : '';
 
+        // CORRIGIDO: LIMIT e OFFSET diretos
         const query = `
             SELECT 
                 s.*,
@@ -262,25 +226,17 @@ export class Sale extends BaseModel {
             INNER JOIN stores st ON s.store_id = st.id
             ${baseWhere}
             ORDER BY s.created_at DESC
-            ${limitClause}
+            LIMIT ${parseInt(limit)} OFFSET ${parseInt(offset)}
         `;
 
         return await this.query(query, params);
     }
 
-    /**
-     * Busca textual em vendas - CORRIGIDO
-     */
     async searchSales(searchTerm, filters = {}, page = 1, limit = 50) {
-        const { where, params } = filterService.buildWhereClause({
-            ...filters,
-            search: searchTerm,
-            searchField: 'sale'
-        });
+        const offset = (page - 1) * limit;
+        const searchPattern = `%${searchTerm}%`;
 
-        const { limit: limitClause } = filterService.buildLimitClause(page, limit);
-        const baseWhere = where ? where.replace('created_at', 's.created_at') : '';
-
+        // CORRIGIDO: LIMIT e OFFSET diretos
         const query = `
             SELECT 
                 s.*,
@@ -299,30 +255,20 @@ export class Sale extends BaseModel {
                 COALESCE(c.customer_name, '') LIKE ? OR
                 COALESCE(c.email, '') LIKE ?
             )
-            ${baseWhere ? `AND ${baseWhere.replace('WHERE', '')}` : ''}
             ORDER BY s.created_at DESC
-            ${limitClause}
+            LIMIT ${parseInt(limit)} OFFSET ${parseInt(offset)}
         `;
 
-        const searchPattern = `%${searchTerm}%`;
         return await this.query(query, [
             searchPattern, searchPattern, searchPattern,
-            searchPattern, searchPattern,
-            ...params
+            searchPattern, searchPattern
         ]);
     }
 
-    /**
-     * Contagem total de vendas com filtros
-     */
     async countFiltered(filters = {}) {
         const { where, params } = filterService.buildWhereClause(filters);
         
-        const query = `
-            SELECT COUNT(*) as total 
-            FROM ${this.tableName}
-            ${where}
-        `;
+        const query = `SELECT COUNT(*) as total FROM ${this.tableName} ${where}`;
 
         const results = await this.query(query, params);
         return results[0].total;

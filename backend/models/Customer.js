@@ -63,6 +63,7 @@ export class Customer extends BaseModel {
             whereClause += ' AND s.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)';
         }
 
+        // CORRIGIDO: LIMIT direto na query
         const query = `
             SELECT 
                 c.customer_name,
@@ -76,10 +77,10 @@ export class Customer extends BaseModel {
             ${whereClause}
             GROUP BY c.id, c.customer_name, c.email
             ORDER BY total_spent DESC
-            LIMIT ?
+            LIMIT ${parseInt(limit)}
         `;
 
-        return await this.query(query, [...params, limit]);
+        return await this.query(query, params);
     }
 
     async getNewVsReturning(filters = {}) {
@@ -114,9 +115,6 @@ export class Customer extends BaseModel {
         return await this.query(query, [...params, ...params]);
     }
 
-    /**
-     * NOVO: Análise de lifetime value
-     */
     async getLifetimeValueAnalysis(filters = {}) {
         let whereClause = 'WHERE s.sale_status_desc = "COMPLETED"';
         let params = [];
@@ -155,9 +153,6 @@ export class Customer extends BaseModel {
         return await this.query(query, [...params, ...params]);
     }
 
-    /**
-     * NOVO: Clientes em risco de churn
-     */
     async getChurnRiskCustomers(filters = {}) {
         const query = `
             SELECT 
@@ -181,13 +176,11 @@ export class Customer extends BaseModel {
         return await this.query(query);
     }
 
-    /**
-     * NOVO: Busca clientes
-     */
     async searchCustomers(searchTerm, filters = {}, page = 1, limit = 50) {
         const offset = (page - 1) * limit;
         const searchPattern = `%${searchTerm}%`;
 
+        // CORRIGIDO: LIMIT e OFFSET diretos na query
         const query = `
             SELECT 
                 c.id,
@@ -204,10 +197,10 @@ export class Customer extends BaseModel {
             )
             GROUP BY c.id, c.customer_name, c.email
             ORDER BY total_spent DESC
-            LIMIT ? OFFSET ?
+            LIMIT ${parseInt(limit)} OFFSET ${parseInt(offset)}
         `;
 
-        return await this.query(query, [searchPattern, searchPattern, limit, offset]);
+        return await this.query(query, [searchPattern, searchPattern]);
     }
 }
 
