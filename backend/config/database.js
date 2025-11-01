@@ -1,6 +1,4 @@
-// ========== backend/config/database.js ==========
-// Gerenciamento robusto de conexão MySQL com tratamento de erros
-
+// ========== backend/config/database.js - CORRIGIDO ==========
 import mysql from 'mysql2/promise';
 import config from './env.js';
 import logger from '../utils/logger.js';
@@ -25,12 +23,18 @@ class Database {
         
         try {
             this.pool = mysql.createPool({
-                ...config.database,
+                host: config.database.host,
+                user: config.database.user,
+                password: config.database.password,
+                database: config.database.database,
+                port: config.database.port,
+                connectionLimit: config.database.connectionLimit,
+                queueLimit: config.database.queueLimit,
+                waitForConnections: config.database.waitForConnections,
+                timezone: config.database.timezone,
                 enableKeepAlive: true,
                 keepAliveInitialDelay: 10000,
-                // Configurações de retry
-                connectTimeout: 10000,
-                acquireTimeout: 10000
+                connectTimeout: 10000
             });
             
             // Testa conexão
@@ -119,7 +123,6 @@ class Database {
             const duration = Date.now() - startTime;
             logger.dbError(error, sql, params);
             
-            // Adiciona contexto ao erro
             error.query = sql;
             error.params = params;
             error.duration = duration;
@@ -167,7 +170,7 @@ class Database {
     async healthCheck() {
         try {
             const startTime = Date.now();
-            await this.query('SELECT 1');
+            await this.query('SELECT 1 as health');
             const duration = Date.now() - startTime;
             
             return {
@@ -219,43 +222,6 @@ class Database {
             queuedRequests: this.pool.pool._connectionQueue.length,
             isConnected: this.isConnected
         };
-    }
-    
-    /**
-     * Executa query com retry automático
-     */
-    async queryWithRetry(sql, params = [], maxRetries = 3) {
-        let lastError;
-        
-        for (let attempt = 1; attempt <= maxRetries; attempt++) {
-            try {
-                return await this.query(sql, params);
-            } catch (error) {
-                lastError = error;
-                
-                // Só retenta em erros específicos
-                const retryableErrors = [
-                    'ECONNREFUSED',
-                    'ETIMEDOUT',
-                    'ECONNRESET',
-                    'EPIPE'
-                ];
-                
-                if (!retryableErrors.includes(error.code)) {
-                    throw error;
-                }
-                
-                if (attempt < maxRetries) {
-                    const delay = attempt * 1000; // Backoff exponencial
-                    logger.warn(`Tentativa ${attempt}/${maxRetries} falhou. Tentando novamente em ${delay}ms...`);
-                    await new Promise(resolve => setTimeout(resolve, delay));
-                } else {
-                    logger.error(`Todas as ${maxRetries} tentativas falharam`);
-                }
-            }
-        }
-        
-        throw lastError;
     }
 }
 

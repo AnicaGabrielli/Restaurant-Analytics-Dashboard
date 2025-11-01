@@ -1,6 +1,4 @@
-// ========== backend/config/env.js ==========
-// Validação e carregamento seguro de variáveis de ambiente
-
+// ========== backend/config/env.js - POOL AUMENTADO ==========
 import dotenv from 'dotenv';
 import Joi from 'joi';
 import path from 'path';
@@ -20,7 +18,7 @@ const envSchema = Joi.object({
     DB_PASSWORD: Joi.string().allow('').required(),
     DB_NAME: Joi.string().required(),
     DB_PORT: Joi.number().default(3306),
-    DB_CONNECTION_LIMIT: Joi.number().default(10),
+    DB_CONNECTION_LIMIT: Joi.number().default(25), // AUMENTADO de 10 para 25
     DB_QUEUE_LIMIT: Joi.number().default(0),
     DB_WAIT_FOR_CONNECTIONS: Joi.boolean().default(true),
     
@@ -51,7 +49,7 @@ const envSchema = Joi.object({
     ENABLE_CACHE: Joi.boolean().default(true),
     ENABLE_COMPRESSION: Joi.boolean().default(true),
     ENABLE_HELMET: Joi.boolean().default(true)
-}).unknown(); // Permite outras variáveis
+}).unknown();
 
 // Valida variáveis
 const { error, value: validatedEnv } = envSchema.validate(process.env);
@@ -122,6 +120,7 @@ if (config.server.isDevelopment) {
     console.log(`   - Ambiente: ${config.server.env}`);
     console.log(`   - Porta: ${config.server.port}`);
     console.log(`   - Database: ${config.database.database}@${config.database.host}`);
+    console.log(`   - Pool Conexões: ${config.database.connectionLimit}`);
     console.log(`   - Cache: ${config.cache.enabled ? 'Ativado' : 'Desativado'}`);
     console.log(`   - Log Level: ${config.logging.level}`);
 }
