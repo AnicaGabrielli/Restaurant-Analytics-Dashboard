@@ -64,9 +64,135 @@
         </div>
     </div>
 
+    <!-- Filter Bar -->
+    <div class="filter-bar bg-light border-bottom sticky-top" style="top: 56px; z-index: 1000;">
+        <div class="container-fluid py-3">
+            <div class="row g-3 align-items-end">
+                <!-- Período -->
+                <div class="col-md-2">
+                    <label class="form-label small fw-bold">Período</label>
+                    <select class="form-select form-select-sm" id="filterPeriod">
+                        <option value="last7days">Últimos 7 dias</option>
+                        <option value="last30days" selected>Últimos 30 dias</option>
+                        <option value="last90days">Últimos 90 dias</option>
+                        <option value="thisMonth">Este mês</option>
+                        <option value="lastMonth">Mês passado</option>
+                        <option value="thisYear">Este ano</option>
+                        <option value="custom">Personalizado</option>
+                    </select>
+                </div>
+
+                <!-- Datas customizadas -->
+                <div class="col-md-2 custom-dates" style="display: none;">
+                    <label class="form-label small fw-bold">Data Início</label>
+                    <input type="date" class="form-control form-control-sm" id="filterStartDate">
+                </div>
+                <div class="col-md-2 custom-dates" style="display: none;">
+                    <label class="form-label small fw-bold">Data Fim</label>
+                    <input type="date" class="form-control form-control-sm" id="filterEndDate">
+                </div>
+
+                <!-- Canais -->
+                <div class="col-md-2">
+                    <label class="form-label small fw-bold">Canais</label>
+                    <select class="form-select form-select-sm" id="filterChannels" multiple>
+                        <option value="">Todos</option>
+                    </select>
+                </div>
+
+                <!-- Lojas -->
+                <div class="col-md-2">
+                    <label class="form-label small fw-bold">Lojas</label>
+                    <select class="form-select form-select-sm" id="filterStores" multiple>
+                        <option value="">Todas</option>
+                    </select>
+                </div>
+
+                <!-- Status -->
+                <div class="col-md-2">
+                    <label class="form-label small fw-bold">Status</label>
+                    <select class="form-select form-select-sm" id="filterStatus">
+                        <option value="">Todos</option>
+                        <option value="COMPLETED" selected>Completo</option>
+                        <option value="CANCELLED">Cancelado</option>
+                    </select>
+                </div>
+
+                <!-- Botões -->
+                <div class="col-md-2">
+                    <button class="btn btn-primary btn-sm w-100" onclick="applyFilters()">
+                        <i class="bi bi-funnel"></i> Aplicar
+                    </button>
+                    <button class="btn btn-outline-secondary btn-sm w-100 mt-1" onclick="clearFilters()">
+                        <i class="bi bi-x-circle"></i> Limpar
+                    </button>
+                </div>
+            </div>
+
+            <!-- Busca e Export -->
+            <div class="row g-3 mt-2">
+                <div class="col-md-6">
+                    <div class="input-group input-group-sm">
+                        <select class="form-select" style="max-width: 150px;" id="searchType">
+                            <option value="product">Produto</option>
+                            <option value="customer">Cliente</option>
+                            <option value="sale">Pedido</option>
+                        </select>
+                        <input type="text" class="form-control" id="searchInput" placeholder="Digite para buscar..." minlength="2">
+                        <button class="btn btn-outline-primary" onclick="performSearch()">
+                            <i class="bi bi-search"></i> Buscar
+                        </button>
+                    </div>
+                </div>
+                <div class="col-md-6 text-end">
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-success" onclick="exportData('csv')">
+                            <i class="bi bi-file-earmark-spreadsheet"></i> CSV
+                        </button>
+                        <button class="btn btn-success" onclick="exportData('json')">
+                            <i class="bi bi-filetype-json"></i> JSON
+                        </button>
+                    </div>
+                    <button class="btn btn-outline-primary btn-sm ms-2" onclick="refreshDashboard()">
+                        <i class="bi bi-arrow-clockwise"></i> Atualizar
+                    </button>
+                </div>
+            </div>
+
+            <!-- Active Filters Badge -->
+            <div class="mt-2" id="activeFilters"></div>
+        </div>
+    </div>
+
+    <!-- Search Results Modal -->
+    <div class="modal fade" id="searchModal" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="bi bi-search"></i> Resultados da Busca
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="searchResults"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Main Content -->
     <main class="container-fluid py-4">
         
+        <!-- Comparison Bar -->
+        <div class="alert alert-info d-flex justify-content-between align-items-center mb-4" id="comparisonBar" style="display: none !important;">
+            <div>
+                <i class="bi bi-graph-up-arrow"></i>
+                <strong>Comparação:</strong>
+                <span id="comparisonText"></span>
+            </div>
+        </div>
+
         <!-- Overview Section -->
         <section id="overview" class="mb-5">
             <div class="d-flex justify-content-between align-items-center mb-4">
@@ -74,9 +200,6 @@
                     <i class="bi bi-speedometer2 text-warning"></i>
                     Visão Geral
                 </h2>
-                <button class="btn btn-outline-primary" onclick="refreshDashboard()">
-                    <i class="bi bi-arrow-clockwise"></i> Atualizar
-                </button>
             </div>
 
             <!-- KPI Cards -->
@@ -89,6 +212,7 @@
                         <div class="kpi-content">
                             <div class="kpi-label">Faturamento Total</div>
                             <div class="kpi-value" id="totalRevenue">R$ 0,00</div>
+                            <small class="text-muted" id="revenueGrowth"></small>
                         </div>
                     </div>
                 </div>
@@ -100,6 +224,7 @@
                         <div class="kpi-content">
                             <div class="kpi-label">Total de Vendas</div>
                             <div class="kpi-value" id="totalSales">0</div>
+                            <small class="text-muted" id="salesGrowth"></small>
                         </div>
                     </div>
                 </div>
@@ -133,7 +258,7 @@
                     <div class="chart-card">
                         <h5 class="chart-title">
                             <i class="bi bi-graph-up"></i>
-                            Vendas por Período (Últimos 30 Dias)
+                            Vendas por Período
                         </h5>
                         <canvas id="salesTrendChart"></canvas>
                     </div>
@@ -383,7 +508,7 @@
                 <i class="bi bi-code-slash"></i> 
                 Restaurant Analytics Dashboard • Desenvolvido para God Level Coder Challenge
             </p>
-            <small class="text-muted">Powered by Node.js, MySQL & Chart.js</small>
+            <small class="text-muted">Powered by Node.js, MySQL & Chart.js | <span id="cacheStats"></span></small>
         </div>
     </footer>
 
@@ -391,6 +516,7 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="js/charts.js"></script>
+    <script src="js/filters.js"></script>
     <script src="js/dashboard.js"></script>
 </body>
 </html>
