@@ -100,38 +100,38 @@ class Product {
   }
 
   static buildWhereClause(filters) {
-    const conditions = [];
-    const params = [];
+  const conditions = [];
+  const params = [];
 
-    if (filters.startDate) {
-      conditions.push('s.created_at >= ?');
-      params.push(filters.startDate);
-    }
-
-    if (filters.endDate) {
-      conditions.push('s.created_at <= ?');
-      params.push(filters.endDate);
-    }
-
-    if (filters.storeId) {
-      conditions.push('s.store_id = ?');
-      params.push(filters.storeId);
-    }
-
-    if (filters.channelId) {
-      conditions.push('s.channel_id = ?');
-      params.push(filters.channelId);
-    }
-
-    if (filters.categoryId) {
-      conditions.push('p.category_id = ?');
-      params.push(filters.categoryId);
-    }
-
-    const clause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
-    
-    return { clause, params };
+  if (filters.startDate) {
+    conditions.push('s.created_at >= ?');
+    params.push(filters.startDate + ' 00:00:00');
   }
+
+  if (filters.endDate) {
+    conditions.push('s.created_at <= ?');
+    params.push(filters.endDate + ' 23:59:59');
+  }
+
+  if (filters.storeId) {
+    conditions.push('s.store_id = ?');
+    params.push(filters.storeId);
+  }
+
+  if (filters.channelId) {
+    conditions.push('s.channel_id = ?');
+    params.push(filters.channelId);
+  }
+
+  if (filters.categoryId) {
+    conditions.push('p.category_id = ?');
+    params.push(filters.categoryId);
+  }
+
+  const clause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+  
+  return { clause, params };
+}
 }
 
 export default Product;

@@ -2,17 +2,16 @@ import db from '../config/database.js';
 
 class Store {
   static async getAll() {
-    const query = `
-      SELECT id, name, city, state, is_active
-      FROM stores
-      WHERE is_active = true
-      ORDER BY name
-    `;
-    
-    const [rows] = await db.execute(query);
-    return rows;
-  }
-
+  const query = `
+    SELECT DISTINCT id, name, city, state, is_active
+    FROM stores
+    WHERE is_active = true
+    ORDER BY name
+  `;
+  
+  const [rows] = await db.execute(query);
+  return rows;
+}
   static async getChannels() {
     const query = `
       SELECT id, name, type, description

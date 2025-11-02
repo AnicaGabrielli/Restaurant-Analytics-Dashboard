@@ -144,40 +144,39 @@ class Sale {
     return rows;
   }
 
-  static buildWhereClause(filters) {
-    const conditions = [];
-    const params = [];
+static buildWhereClause(filters) {
+  const conditions = [];
+  const params = [];
 
-    // Always add the table prefix 's.' for WHERE clause
-    if (filters.startDate) {
-      conditions.push('s.created_at >= ?');
-      params.push(filters.startDate);
-    }
-
-    if (filters.endDate) {
-      conditions.push('s.created_at <= ?');
-      params.push(filters.endDate + ' 23:59:59');
-    }
-
-    if (filters.storeId) {
-      conditions.push('s.store_id = ?');
-      params.push(filters.storeId);
-    }
-
-    if (filters.channelId) {
-      conditions.push('s.channel_id = ?');
-      params.push(filters.channelId);
-    }
-
-    if (filters.status) {
-      conditions.push('s.sale_status_desc = ?');
-      params.push(filters.status);
-    }
-
-    const clause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
-    
-    return { clause, params };
+  if (filters.startDate) {
+    conditions.push('s.created_at >= ?');
+    params.push(filters.startDate + ' 00:00:00');
   }
+
+  if (filters.endDate) {
+    conditions.push('s.created_at <= ?');
+    params.push(filters.endDate + ' 23:59:59');
+  }
+
+  if (filters.storeId) {
+    conditions.push('s.store_id = ?');
+    params.push(filters.storeId);
+  }
+
+  if (filters.channelId) {
+    conditions.push('s.channel_id = ?');
+    params.push(filters.channelId);
+  }
+
+  if (filters.status) {
+    conditions.push('s.sale_status_desc = ?');
+    params.push(filters.status);
+  }
+
+  const clause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+  
+  return { clause, params };
+}
 }
 
 export default Sale;
