@@ -227,7 +227,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script type="module">
-        // CORREÇÃO: Caminho correto para os imports
         import ApiService from '../assets/js/services/ApiService.js';
         import { Filters } from '../assets/js/components/Filters.js';
         import { Charts } from '../assets/js/components/Charts.js';
@@ -254,48 +253,102 @@
                 showLoading(true);
                 const currentFilters = filters.getFilters();
 
-                console.log('Carregando dados de performance com filtros:', currentFilters);
+                console.log('🔍 Carregando dados de performance com filtros:', currentFilters);
 
-                const [storeEffRes, channelPerfRes, peakHoursRes, deliveryRegionRes] = await Promise.all([
-                    ApiService.getStoreEfficiency(currentFilters),
-                    ApiService.getChannelPerformance(currentFilters),
-                    ApiService.getPeakHours(currentFilters),
-                    ApiService.getDeliveryByRegion(currentFilters)
-                ]);
+                // Carregar dados sequencialmente para identificar qual falha
+                let storeEffRes, channelPerfRes, peakHoursRes, deliveryRegionRes;
+                
+                try {
+                    console.log('📊 Buscando eficiência de lojas...');
+                    storeEffRes = await ApiService.getStoreEfficiency(currentFilters);
+                    console.log('✅ Store efficiency OK:', storeEffRes);
+                } catch (err) {
+                    console.error('❌ Erro em store efficiency:', err);
+                    storeEffRes = { success: false, data: [] };
+                }
 
-                console.log('Resposta store efficiency:', storeEffRes);
-                console.log('Resposta channel performance:', channelPerfRes);
+                try {
+                    console.log('📊 Buscando performance de canais...');
+                    channelPerfRes = await ApiService.getChannelPerformance(currentFilters);
+                    console.log('✅ Channel performance OK:', channelPerfRes);
+                } catch (err) {
+                    console.error('❌ Erro em channel performance:', err);
+                    channelPerfRes = { success: false, data: [] };
+                }
 
-                if (storeEffRes.success) {
+                try {
+                    console.log('📊 Buscando horários de pico...');
+                    peakHoursRes = await ApiService.getPeakHours(currentFilters);
+                    console.log('✅ Peak hours OK:', peakHoursRes);
+                } catch (err) {
+                    console.error('❌ Erro em peak hours:', err);
+                    peakHoursRes = { success: false, data: [] };
+                }
+
+                try {
+                    console.log('📊 Buscando entrega por região...');
+                    deliveryRegionRes = await ApiService.getDeliveryByRegion(currentFilters);
+                    console.log('✅ Delivery region OK:', deliveryRegionRes);
+                } catch (err) {
+                    console.error('❌ Erro em delivery region:', err);
+                    deliveryRegionRes = { success: false, data: [] };
+                }
+
+                // Processar resultados
+                if (storeEffRes.success && storeEffRes.data) {
                     storeEffData = storeEffRes.data;
                     updateStoreEfficiencyTable(storeEffData);
+                } else {
+                    console.warn('⚠️ Nenhum dado de eficiência de lojas');
+                    updateStoreEfficiencyTable([]);
                 }
 
-                if (channelPerfRes.success) {
+                if (channelPerfRes.success && channelPerfRes.data) {
                     channelPerfData = channelPerfRes.data;
                     updateChannelPerfTable(channelPerfData);
+                } else {
+                    console.warn('⚠️ Nenhum dado de performance de canais');
+                    updateChannelPerfTable([]);
                 }
 
-                if (peakHoursRes.success) {
+                if (peakHoursRes.success && peakHoursRes.data && peakHoursRes.data.length > 0) {
                     createPeakHoursChart(peakHoursRes.data);
                     createDeliveryTimeChart(peakHoursRes.data);
+                } else {
+                    console.warn('⚠️ Nenhum dado de horários de pico');
                 }
 
-                if (deliveryRegionRes.success) {
+                if (deliveryRegionRes.success && deliveryRegionRes.data) {
                     deliveryRegionData = deliveryRegionRes.data;
                     updateDeliveryRegionTable(deliveryRegionData);
+                } else {
+                    console.warn('⚠️ Nenhum dado de entrega por região');
+                    updateDeliveryRegionTable([]);
                 }
 
                 showLoading(false);
+                console.log('✅ Carregamento concluído!');
             } catch (error) {
-                console.error('Erro ao carregar análise de performance:', error);
+                console.error('💥 Erro crítico ao carregar análise de performance:', error);
                 showLoading(false);
-                alert('Erro ao carregar dados: ' + error.message);
+                
+                const container = document.querySelector('.container-fluid.mt-4');
+                if (container) {
+                    const errorDiv = document.createElement('div');
+                    errorDiv.className = 'alert alert-danger';
+                    errorDiv.innerHTML = `
+                        <h5><i class="fas fa-exclamation-triangle me-2"></i>Erro ao carregar dados</h5>
+                        <p>${error.message}</p>
+                        <p><small>Verifique o console para mais detalhes</small></p>
+                    `;
+                    container.insertBefore(errorDiv, container.firstChild);
+                }
             }
         }
 
         function createDeliveryTimeChart(data) {
             const ctx = document.getElementById('deliveryTimeChart');
+            if (!ctx) return;
 
             if (charts.charts.deliveryTimeChart) {
                 charts.charts.deliveryTimeChart.destroy();
@@ -328,6 +381,7 @@
 
         function createPeakHoursChart(data) {
             const ctx = document.getElementById('peakHoursChart');
+            if (!ctx) return;
             
             const colors = data.map(d => {
                 if (d.volume_category === 'Alto') return 'rgba(216, 67, 21, 0.7)';
@@ -418,7 +472,6 @@
                 return;
             }
             
-            // Ordenar por pior tempo
             const sortedData = data.sort((a, b) => parseFloat(b.avg_delivery_minutes) - parseFloat(a.avg_delivery_minutes)).slice(0, 10);
             
             sortedData.forEach(region => {
@@ -478,12 +531,12 @@
         document.addEventListener('filtersApplied', loadPerformanceAnalysis);
 
         // Initialize
-        console.log('Inicializando página de performance...');
+        console.log('🚀 Inicializando página de performance...');
         filters.init().then(() => {
-            console.log('Filtros inicializados, carregando dados...');
+            console.log('✅ Filtros inicializados, carregando dados...');
             loadPerformanceAnalysis();
         }).catch(error => {
-            console.error('Erro ao inicializar filtros:', error);
+            console.error('❌ Erro ao inicializar filtros:', error);
             showLoading(false);
         });
     </script>

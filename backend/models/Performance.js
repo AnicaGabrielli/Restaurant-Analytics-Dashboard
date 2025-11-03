@@ -106,46 +106,35 @@ class Performance {
     return rows;
   }
 
-  // Horários de pico - CORRIGIDO para evitar erro de GROUP BY
+  // Horários de pico - CORRIGIDO
   static async getPeakHours(filters = {}) {
     const whereConditions = this.buildWhereClause(filters);
     
-    // Primeiro, calculamos a média de pedidos por hora
-    const avgQuery = `
-      SELECT AVG(hourly_count) as avg_hourly, AVG(hourly_count) * 1.5 as high_threshold
-      FROM (
-        SELECT HOUR(created_at) as h, COUNT(*) as hourly_count
-        FROM sales
-        ${whereConditions.clause}
-        GROUP BY h
-      ) as hourly_avg
-    `;
-    
-    const [avgResult] = await db.execute(avgQuery, whereConditions.params);
-    const avgHourly = avgResult[0]?.avg_hourly || 0;
-    const highThreshold = avgResult[0]?.high_threshold || 0;
-    
-    // Agora fazemos a query principal
     const query = `
       SELECT 
         HOUR(s.created_at) as hour,
         COUNT(*) as order_count,
         SUM(CASE WHEN s.sale_status_desc = 'COMPLETED' THEN s.total_amount ELSE 0 END) as revenue,
-        AVG(CASE WHEN s.delivery_seconds IS NOT NULL AND s.sale_status_desc = 'COMPLETED' THEN s.delivery_seconds / 60.0 ELSE NULL END) as avg_delivery_time,
-        CASE
-          WHEN COUNT(*) >= ? THEN 'Alto'
-          WHEN COUNT(*) >= ? THEN 'Médio'
-          ELSE 'Baixo'
-        END as volume_category
+        AVG(CASE WHEN s.delivery_seconds IS NOT NULL AND s.sale_status_desc = 'COMPLETED' THEN s.delivery_seconds / 60.0 ELSE NULL END) as avg_delivery_time
       FROM sales s
       ${whereConditions.clause}
       GROUP BY HOUR(s.created_at)
       ORDER BY hour
     `;
     
-    const params = [...whereConditions.params, highThreshold, avgHourly];
-    const [rows] = await db.execute(query, params);
-    return rows;
+    const [rows] = await db.execute(query, whereConditions.params);
+    
+    // Calcular categorias após buscar os dados
+    if (rows.length === 0) return rows;
+    
+    const avgHourly = rows.reduce((sum, r) => sum + r.order_count, 0) / rows.length;
+    const highThreshold = avgHourly * 1.5;
+    
+    return rows.map(row => ({
+      ...row,
+      volume_category: row.order_count >= highThreshold ? 'Alto' : 
+                       row.order_count >= avgHourly ? 'Médio' : 'Baixo'
+    }));
   }
 
   // Taxa de cancelamento por motivo
