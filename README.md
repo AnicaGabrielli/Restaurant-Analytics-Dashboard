@@ -589,65 +589,6 @@ restaurant-analytics/
 
 ---
 
-## 🎥 Demonstração
-
-### Video Walkthrough (5-10 min)
-
-**Roteiro Sugerido**:
-
-1. **Introdução (30s)**
-   - Apresentação do problema
-   - Tecnologias utilizadas
-
-2. **Instalação e Setup (1-2min)**
-   - Clone do repositório
-   - Instalação de dependências
-   - Teste de conexão com banco
-   - Start do servidor
-
-3. **Dashboard Executivo (1min)**
-   - KPIs principais
-   - Gráficos interativos
-   - Insights automáticos
-   - Exportação PDF
-
-4. **Análises Específicas (3-4min)**
-   - **Vendas**: Filtros, evolução temporal, ranking
-   - **Produtos**: Top produtos, margem, categorias
-   - **Clientes**: RFM, churn, LTV
-   - **Performance**: Tempo entrega, eficiência
-
-5. **Insights Acionáveis (2-3min)**
-   - Demonstração das 5 perguntas
-   - Como geram valor
-   - Exportação de dados
-
-6. **Arquitetura e Código (1-2min)**
-   - MVC pattern
-   - BaseModel e helpers
-   - API REST
-   - Decisões técnicas
-
-7. **Conclusão (30s)**
-   - Principais diferenciais
-   - Próximos passos
-
-### Comandos para Demonstração
-
-```bash
-# Terminal 1: Iniciar servidor
-npm start
-
-# Terminal 2: Verificar logs
-tail -f logs/app.log
-
-# Terminal 3: Testar API
-curl http://localhost:3000/api/health
-curl http://localhost:3000/api/dashboard?startDate=2024-01-01&endDate=2024-12-31
-```
-
----
-
 ## 🚦 Performance
 
 ### Métricas Obtidas
@@ -768,12 +709,9 @@ Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para ma
 
 ## 👨‍💻 Autor
 
-**God Level Coder Challenge**
+**Anica Gabrielli Pereira Santos**
 
-- 🌐 Website: [seu-site.com]
-- 💼 LinkedIn: [seu-linkedin]
-- 🐦 Twitter: [@seu-twitter]
-- 📧 Email: seu-email@example.com
+- 📧 Email: anicasantosdev@gmail.com
 
 ---
 
