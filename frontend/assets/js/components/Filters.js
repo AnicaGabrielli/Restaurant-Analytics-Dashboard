@@ -43,6 +43,8 @@ export class Filters {
     if (periodFilter) {
       periodFilter.addEventListener('change', (e) => {
         this.handlePeriodChange(e.target.value);
+        // Auto-aplicar após mudar período
+        setTimeout(() => this.applyFilters(), 100);
       });
     }
 
@@ -50,6 +52,21 @@ export class Filters {
     if (applyBtn) {
       applyBtn.addEventListener('click', () => {
         this.applyFilters();
+      });
+    }
+
+    // Auto-aplicar ao mudar loja ou canal
+    const storeFilter = document.getElementById('storeFilter');
+    if (storeFilter) {
+      storeFilter.addEventListener('change', () => {
+        setTimeout(() => this.applyFilters(), 100);
+      });
+    }
+
+    const channelFilter = document.getElementById('channelFilter');
+    if (channelFilter) {
+      channelFilter.addEventListener('change', () => {
+        setTimeout(() => this.applyFilters(), 100);
       });
     }
   }

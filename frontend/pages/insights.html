@@ -50,19 +50,19 @@
             </div>
         </div>
 
-        <!-- Pergunta 1: Qual produto vende mais na quinta à noite no iFood? -->
+        <!-- Pergunta 1: Qual produto vende mais em determinado contexto? -->
         <div class="row g-3 mb-4">
             <div class="col-12">
                 <div class="card">
                     <div class="card-header bg-warning text-dark">
-                        <h5 class="mb-0"><i class="fas fa-question-circle me-2"></i>Qual produto vende mais na quinta à noite no iFood?</h5>
+                        <h5 class="mb-0"><i class="fas fa-question-circle me-2"></i>Qual produto vende mais em determinado canal, dia e horário?</h5>
                     </div>
                     <div class="card-body">
                         <div class="row g-3 mb-3">
                             <div class="col-md-3">
                                 <label class="form-label">Canal</label>
                                 <select class="form-select" id="channelQ1">
-                                    <option value="">Selecione...</option>
+                                    <option value="">Selecione um canal...</option>
                                 </select>
                             </div>
                             <div class="col-md-3">
@@ -82,7 +82,6 @@
                                 <label class="form-label">Horário</label>
                                 <select class="form-select" id="hourQ1">
                                     <option value="">Todos</option>
-                                    ${Array.from({length: 24}, (_, i) => `<option value="${i}">${i}:00 - ${i}:59</option>`).join('')}
                                 </select>
                             </div>
                             <div class="col-md-3">
@@ -182,6 +181,17 @@
                     option.textContent = ch.name;
                     select.appendChild(option);
                 });
+            }
+        }
+
+        // Carregar horários para Q1
+        function loadHours() {
+            const select = document.getElementById('hourQ1');
+            for (let i = 0; i < 24; i++) {
+                const option = document.createElement('option');
+                option.value = i;
+                option.textContent = `${i}:00 - ${i}:59`;
+                select.appendChild(option);
             }
         }
 
@@ -394,6 +404,7 @@
 
         // Initialize
         loadChannels();
+        loadHours();
     </script>
 </body>
 </html>

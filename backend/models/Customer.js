@@ -1,9 +1,8 @@
-import db from '../config/database.js';
+import BaseModel from './BaseModel.js';
 
-class Customer {
-  // Análise RFM (Recency, Frequency, Monetary)
+class Customer extends BaseModel {
   static async getRFMAnalysis(filters = {}) {
-    const whereConditions = this.buildWhereClause(filters);
+    const { clause, params } = this.buildWhereClause(filters);
     
     const query = `
       SELECT 
@@ -13,8 +12,8 @@ class Customer {
         c.phone,
         DATEDIFF(NOW(), MAX(s.created_at)) as recency_days,
         COUNT(DISTINCT s.id) as frequency,
-        SUM(CASE WHEN s.sale_status_desc = 'COMPLETED' THEN s.total_amount ELSE 0 END) as monetary_value,
-        AVG(CASE WHEN s.sale_status_desc = 'COMPLETED' THEN s.total_amount ELSE NULL END) as avg_order_value,
+        ${this.coalesce('SUM(CASE WHEN s.sale_status_desc = "COMPLETED" THEN s.total_amount ELSE 0 END)')} as monetary_value,
+        ${this.coalesce('AVG(CASE WHEN s.sale_status_desc = "COMPLETED" THEN s.total_amount ELSE NULL END)')} as avg_order_value,
         MIN(s.created_at) as first_purchase,
         MAX(s.created_at) as last_purchase,
         CASE
@@ -27,20 +26,19 @@ class Customer {
         END as customer_segment
       FROM sales s
       LEFT JOIN customers c ON c.id = s.customer_id
-      ${whereConditions.clause}
+      ${clause}
       AND s.customer_id IS NOT NULL
       GROUP BY s.customer_id, c.name, c.email, c.phone
       HAVING frequency > 0
       ORDER BY monetary_value DESC
     `;
     
-    const [rows] = await db.execute(query, whereConditions.params);
-    return rows;
+    const rows = await this.executeQuery(query, params);
+    return this.formatResults(rows);
   }
 
-  // Clientes em churn (compraram 3+ vezes mas não voltam há 30+ dias)
   static async getChurnRiskCustomers(filters = {}) {
-    const whereConditions = this.buildWhereClause(filters);
+    const { clause, params } = this.buildWhereClause(filters);
     
     const query = `
       SELECT 
@@ -49,41 +47,40 @@ class Customer {
         c.email,
         c.phone,
         COUNT(DISTINCT s.id) as total_orders,
-        SUM(CASE WHEN s.sale_status_desc = 'COMPLETED' THEN s.total_amount ELSE 0 END) as total_spent,
+        ${this.coalesce('SUM(CASE WHEN s.sale_status_desc = "COMPLETED" THEN s.total_amount ELSE 0 END)')} as total_spent,
         MAX(s.created_at) as last_order_date,
         DATEDIFF(NOW(), MAX(s.created_at)) as days_since_last_order,
-        AVG(CASE WHEN s.sale_status_desc = 'COMPLETED' THEN s.total_amount ELSE NULL END) as avg_order_value
+        ${this.coalesce('AVG(CASE WHEN s.sale_status_desc = "COMPLETED" THEN s.total_amount ELSE NULL END)')} as avg_order_value
       FROM sales s
       LEFT JOIN customers c ON c.id = s.customer_id
-      ${whereConditions.clause}
+      ${clause}
       AND s.customer_id IS NOT NULL
       GROUP BY s.customer_id, c.name, c.email, c.phone
       HAVING total_orders >= 3 AND days_since_last_order >= 30
       ORDER BY total_spent DESC, days_since_last_order DESC
     `;
     
-    const [rows] = await db.execute(query, whereConditions.params);
-    return rows;
+    const rows = await this.executeQuery(query, params);
+    return this.formatResults(rows);
   }
 
-  // Lifetime Value por segmento
   static async getLTVBySegment(filters = {}) {
-    const whereConditions = this.buildWhereClause(filters);
+    const { clause, params } = this.buildWhereClause(filters);
     
     const query = `
       SELECT 
         segment,
         COUNT(*) as customer_count,
-        AVG(total_value) as avg_ltv,
-        SUM(total_value) as total_revenue,
-        AVG(order_count) as avg_orders,
-        AVG(avg_ticket) as avg_ticket_value
+        ${this.coalesce('AVG(total_value)')} as avg_ltv,
+        ${this.coalesce('SUM(total_value)')} as total_revenue,
+        ${this.coalesce('AVG(order_count)')} as avg_orders,
+        ${this.coalesce('AVG(avg_ticket)')} as avg_ticket_value
       FROM (
         SELECT 
           s.customer_id,
           COUNT(DISTINCT s.id) as order_count,
-          SUM(CASE WHEN s.sale_status_desc = 'COMPLETED' THEN s.total_amount ELSE 0 END) as total_value,
-          AVG(CASE WHEN s.sale_status_desc = 'COMPLETED' THEN s.total_amount ELSE NULL END) as avg_ticket,
+          ${this.coalesce('SUM(CASE WHEN s.sale_status_desc = "COMPLETED" THEN s.total_amount ELSE 0 END)')} as total_value,
+          ${this.coalesce('AVG(CASE WHEN s.sale_status_desc = "COMPLETED" THEN s.total_amount ELSE NULL END)')} as avg_ticket,
           CASE
             WHEN DATEDIFF(NOW(), MAX(s.created_at)) <= 30 AND COUNT(DISTINCT s.id) >= 5 THEN 'VIP'
             WHEN DATEDIFF(NOW(), MAX(s.created_at)) <= 30 AND COUNT(DISTINCT s.id) >= 3 THEN 'Leal'
@@ -93,7 +90,7 @@ class Customer {
             ELSE 'Novo'
           END as segment
         FROM sales s
-        ${whereConditions.clause}
+        ${clause}
         AND s.customer_id IS NOT NULL
         GROUP BY s.customer_id
       ) as customer_data
@@ -101,13 +98,13 @@ class Customer {
       ORDER BY avg_ltv DESC
     `;
     
-    const [rows] = await db.execute(query, whereConditions.params);
-    return rows;
+    const rows = await this.executeQuery(query, params);
+    return this.formatResults(rows);
   }
 
-  // Top clientes por receita
   static async getTopCustomers(filters = {}, limit = 20) {
-    const whereConditions = this.buildWhereClause(filters);
+    const { clause, params } = this.buildWhereClause(filters);
+    const limitClause = this.buildLimitClause(limit);
     
     const query = `
       SELECT 
@@ -116,38 +113,37 @@ class Customer {
         c.email,
         c.phone,
         COUNT(DISTINCT s.id) as total_orders,
-        SUM(CASE WHEN s.sale_status_desc = 'COMPLETED' THEN s.total_amount ELSE 0 END) as total_revenue,
-        AVG(CASE WHEN s.sale_status_desc = 'COMPLETED' THEN s.total_amount ELSE NULL END) as avg_ticket,
+        ${this.coalesce('SUM(CASE WHEN s.sale_status_desc = "COMPLETED" THEN s.total_amount ELSE 0 END)')} as total_revenue,
+        ${this.coalesce('AVG(CASE WHEN s.sale_status_desc = "COMPLETED" THEN s.total_amount ELSE NULL END)')} as avg_ticket,
         MAX(s.created_at) as last_order,
         DATEDIFF(NOW(), MAX(s.created_at)) as days_since_last_order
       FROM sales s
       LEFT JOIN customers c ON c.id = s.customer_id
-      ${whereConditions.clause}
+      ${clause}
       AND s.customer_id IS NOT NULL
       AND s.sale_status_desc = 'COMPLETED'
       GROUP BY s.customer_id, c.name, c.email, c.phone
       ORDER BY total_revenue DESC
-      LIMIT ${limit}
+      ${limitClause}
     `;
     
-    const [rows] = await db.execute(query, whereConditions.params);
-    return rows;
+    const rows = await this.executeQuery(query, params);
+    return this.formatResults(rows);
   }
 
-  // Frequência de compra
   static async getPurchaseFrequency(filters = {}) {
-    const whereConditions = this.buildWhereClause(filters);
+    const { clause, params } = this.buildWhereClause(filters);
     
     const query = `
       SELECT 
         frequency_range,
         COUNT(*) as customer_count,
-        AVG(total_value) as avg_revenue
+        ${this.coalesce('AVG(total_value)')} as avg_revenue
       FROM (
         SELECT 
           s.customer_id,
           COUNT(DISTINCT s.id) as order_count,
-          SUM(CASE WHEN s.sale_status_desc = 'COMPLETED' THEN s.total_amount ELSE 0 END) as total_value,
+          ${this.coalesce('SUM(CASE WHEN s.sale_status_desc = "COMPLETED" THEN s.total_amount ELSE 0 END)')} as total_value,
           CASE
             WHEN COUNT(DISTINCT s.id) = 1 THEN '1 pedido'
             WHEN COUNT(DISTINCT s.id) BETWEEN 2 AND 3 THEN '2-3 pedidos'
@@ -156,7 +152,7 @@ class Customer {
             ELSE '11+ pedidos'
           END as frequency_range
         FROM sales s
-        ${whereConditions.clause}
+        ${clause}
         AND s.customer_id IS NOT NULL
         GROUP BY s.customer_id
       ) as freq_data
@@ -171,20 +167,13 @@ class Customer {
         END
     `;
     
-    const [rows] = await db.execute(query, whereConditions.params);
-    return rows;
+    const rows = await this.executeQuery(query, params);
+    return this.formatResults(rows);
   }
 
-  // Novos clientes por período
   static async getNewCustomers(filters = {}) {
-    const whereConditions = this.buildWhereClause(filters);
-    const groupBy = filters.groupBy || 'day';
-    
-    const dateFormat = {
-      day: '%Y-%m-%d',
-      week: '%Y-%u',
-      month: '%Y-%m'
-    }[groupBy];
+    const { clause, params } = this.buildWhereClause(filters);
+    const dateFormat = this.getDateFormat(filters.groupBy);
 
     const query = `
       SELECT 
@@ -196,7 +185,7 @@ class Customer {
           MIN(created_at) as first_purchase
         FROM sales
         WHERE customer_id IS NOT NULL
-        ${whereConditions.clause ? 'AND ' + whereConditions.clause.replace('WHERE', '') : ''}
+        ${clause ? 'AND ' + clause.replace('WHERE', '') : ''}
         GROUP BY customer_id
       ) as first_purchases
       WHERE first_purchase IS NOT NULL
@@ -204,19 +193,18 @@ class Customer {
       ORDER BY period
     `;
     
-    const [rows] = await db.execute(query, whereConditions.params);
-    return rows;
+    const rows = await this.executeQuery(query, params);
+    return this.formatResults(rows);
   }
 
-  // Retenção de clientes
   static async getRetentionRate(filters = {}) {
-    const whereConditions = this.buildWhereClause(filters);
+    const { clause, params } = this.buildWhereClause(filters);
     
     const query = `
       SELECT 
         retention_period,
         COUNT(*) as customer_count,
-        AVG(order_count) as avg_orders
+        ${this.coalesce('AVG(order_count)')} as avg_orders
       FROM (
         SELECT 
           s.customer_id,
@@ -228,7 +216,7 @@ class Customer {
             ELSE '180+ dias'
           END as retention_period
         FROM sales s
-        ${whereConditions.clause}
+        ${clause}
         AND s.customer_id IS NOT NULL
         GROUP BY s.customer_id
         HAVING order_count > 1
@@ -243,37 +231,8 @@ class Customer {
         END
     `;
     
-    const [rows] = await db.execute(query, whereConditions.params);
-    return rows;
-  }
-
-  static buildWhereClause(filters) {
-    const conditions = [];
-    const params = [];
-
-    if (filters.startDate) {
-      conditions.push('s.created_at >= ?');
-      params.push(filters.startDate + ' 00:00:00');
-    }
-
-    if (filters.endDate) {
-      conditions.push('s.created_at <= ?');
-      params.push(filters.endDate + ' 23:59:59');
-    }
-
-    if (filters.storeId) {
-      conditions.push('s.store_id = ?');
-      params.push(filters.storeId);
-    }
-
-    if (filters.channelId) {
-      conditions.push('s.channel_id = ?');
-      params.push(filters.channelId);
-    }
-
-    const clause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
-    
-    return { clause, params };
+    const rows = await this.executeQuery(query, params);
+    return this.formatResults(rows);
   }
 }
 

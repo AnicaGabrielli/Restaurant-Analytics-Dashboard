@@ -13,13 +13,19 @@
     "restaurant",
     "analytics",
     "dashboard",
-    "mvc"
+    "mvc",
+    "express",
+    "mysql"
   ],
-  "author": "",
+  "author": "God Level Coder Challenge",
   "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
   "dependencies": {
-    "express": "^4.18.2",
-    "mysql2": "^3.6.5",
+    "express": "^4.21.2",
+    "mysql2": "^3.15.3",
     "cors": "^2.8.5",
     "json2csv": "^6.0.0-alpha.2"
   }

@@ -20,9 +20,33 @@ app.use(express.static(path.join(__dirname, '../frontend')));
 // API Routes
 app.use('/api', routes);
 
-// Serve frontend pages
-app.get('*', (req, res) => {
+// Serve HTML pages - CORRIGIDO: Serve páginas específicas
+app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, '../frontend/pages/index.html'));
+});
+
+app.get('/index.html', (req, res) => {
+  res.sendFile(path.join(__dirname, '../frontend/pages/index.html'));
+});
+
+app.get('/vendas.html', (req, res) => {
+  res.sendFile(path.join(__dirname, '../frontend/pages/vendas.html'));
+});
+
+app.get('/produtos.html', (req, res) => {
+  res.sendFile(path.join(__dirname, '../frontend/pages/produtos.html'));
+});
+
+app.get('/clientes.html', (req, res) => {
+  res.sendFile(path.join(__dirname, '../frontend/pages/clientes.html'));
+});
+
+app.get('/performance.html', (req, res) => {
+  res.sendFile(path.join(__dirname, '../frontend/pages/performance.html'));
+});
+
+app.get('/insights.html', (req, res) => {
+  res.sendFile(path.join(__dirname, '../frontend/pages/insights.html'));
 });
 
 export default app;
