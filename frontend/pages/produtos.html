@@ -13,8 +13,7 @@
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
         <div class="container-fluid">
             <a class="navbar-brand" href="index.html">
-                <i class="fas fa-utensils me-2"></i>
-                Restaurant Analytics
+                <i class="fas fa-utensils me-2"></i>Restaurant Analytics
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
@@ -22,24 +21,22 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav">
                     <li class="nav-item">
-                        <a class="nav-link" href="index.html">
-                            <i class="fas fa-chart-line me-1"></i> Dashboard
-                        </a>
+                        <a class="nav-link" href="index.html"><i class="fas fa-chart-line me-1"></i> Dashboard</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="vendas.html">
-                            <i class="fas fa-shopping-cart me-1"></i> Vendas
-                        </a>
+                        <a class="nav-link" href="vendas.html"><i class="fas fa-shopping-cart me-1"></i> Vendas</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link active" href="produtos.html">
-                            <i class="fas fa-hamburger me-1"></i> Produtos
-                        </a>
+                        <a class="nav-link active" href="produtos.html"><i class="fas fa-hamburger me-1"></i> Produtos</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="comparativo.html">
-                            <i class="fas fa-balance-scale me-1"></i> Comparativo
-                        </a>
+                        <a class="nav-link" href="clientes.html"><i class="fas fa-users me-1"></i> Clientes</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="performance.html"><i class="fas fa-tachometer-alt me-1"></i> Performance</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="insights.html"><i class="fas fa-lightbulb me-1"></i> Insights</a>
                     </li>
                 </ul>
             </div>
@@ -51,7 +48,7 @@
         <div class="card filter-card">
             <div class="card-body">
                 <div class="row g-3">
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <label class="form-label">Período</label>
                         <select class="form-select" id="periodFilter">
                             <option value="7">Últimos 7 dias</option>
@@ -80,9 +77,14 @@
                             <option value="">Todos</option>
                         </select>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <button class="btn btn-primary w-100 mt-4" id="applyFilters">
-                            <i class="fas fa-search me-2"></i>Aplicar Filtros
+                            <i class="fas fa-search me-2"></i>Aplicar
+                        </button>
+                    </div>
+                    <div class="col-md-2">
+                        <button class="btn btn-success w-100 mt-4" id="exportPagePDF">
+                            <i class="fas fa-file-pdf me-2"></i>Exportar PDF
                         </button>
                     </div>
                 </div>
@@ -119,10 +121,10 @@
     <!-- Tables -->
     <div class="container-fluid mt-4 mb-5">
         <div class="row g-3">
-            <div class="col-lg-6">
+            <div class="col-lg-12">
                 <div class="card">
                     <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">Top 20 Produtos</h5>
+                        <h5 class="mb-0">Top 20 Produtos com Margem de Lucro</h5>
                         <button class="btn btn-sm btn-success" id="exportProducts">
                             <i class="fas fa-download me-1"></i>Exportar
                         </button>
@@ -134,8 +136,12 @@
                                     <tr>
                                         <th>#</th>
                                         <th>Produto</th>
+                                        <th>Categoria</th>
                                         <th>Qtd</th>
                                         <th>Faturamento</th>
+                                        <th>Custo</th>
+                                        <th>Lucro</th>
+                                        <th>Margem %</th>
                                     </tr>
                                 </thead>
                                 <tbody></tbody>
@@ -144,6 +150,7 @@
                     </div>
                 </div>
             </div>
+
             <div class="col-lg-6">
                 <div class="card">
                     <div class="card-header d-flex justify-content-between align-items-center">
@@ -169,29 +176,61 @@
                     </div>
                 </div>
             </div>
+
+            <div class="col-lg-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">⚠️ Produtos com Baixa Margem (<30%)</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            Produtos que precisam de revisão de preço
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-hover" id="lowMarginTable">
+                                <thead>
+                                    <tr>
+                                        <th>Produto</th>
+                                        <th>Margem %</th>
+                                        <th>Faturamento</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script type="module">
         import ApiService from '../assets/js/services/ApiService.js';
         import { Filters } from '../assets/js/components/Filters.js';
         import { Charts } from '../assets/js/components/Charts.js';
+        import { PDFExport } from '../assets/js/components/PDFExport.js';
         import { formatCurrency, formatNumber, downloadCSV } from '../assets/js/utils/helpers.js';
 
         const filters = new Filters();
         const charts = new Charts();
+        const pdfExport = new PDFExport();
         let productsData = [];
         let customizationsData = [];
+        let lowMarginData = [];
 
         async function loadProductsAnalysis() {
             const currentFilters = filters.getFilters();
 
-            const [productsRes, categoriesRes, customizationsRes] = await Promise.all([
+            const [productsRes, categoriesRes, customizationsRes, lowMarginRes] = await Promise.all([
                 ApiService.getTopProducts({ ...currentFilters, limit: 20 }),
                 ApiService.getProductsByCategory(currentFilters),
-                ApiService.getTopCustomizations({ ...currentFilters, limit: 20 })
+                ApiService.getTopCustomizations({ ...currentFilters, limit: 20 }),
+                ApiService.getLowMarginProducts({ ...currentFilters, limit: 20 })
             ]);
 
             if (productsRes.success) {
@@ -207,6 +246,11 @@
             if (customizationsRes.success) {
                 customizationsData = customizationsRes.data;
                 updateCustomizationsTable(customizationsData);
+            }
+
+            if (lowMarginRes.success) {
+                lowMarginData = lowMarginRes.data;
+                updateLowMarginTable(lowMarginData);
             }
         }
 
@@ -246,9 +290,7 @@
                     responsive: true,
                     maintainAspectRatio: true,
                     plugins: {
-                        legend: {
-                            position: 'bottom'
-                        }
+                        legend: { position: 'bottom' }
                     }
                 }
             });
@@ -260,11 +302,19 @@
             
             products.forEach((product, index) => {
                 const row = tbody.insertRow();
+                const marginClass = parseFloat(product.profit_margin_percent || 0) < 20 ? 'text-danger' : 
+                                   parseFloat(product.profit_margin_percent || 0) < 30 ? 'text-warning' : 
+                                   'text-success';
+                
                 row.innerHTML = `
-                    <td>${index + 1}</td>
+                    <td><strong>${index + 1}</strong></td>
                     <td>${product.product_name}</td>
+                    <td>${product.category_name || 'N/A'}</td>
                     <td>${formatNumber(product.total_quantity)}</td>
                     <td>${formatCurrency(product.total_revenue)}</td>
+                    <td>${formatCurrency(product.total_cost)}</td>
+                    <td>${formatCurrency(product.total_profit)}</td>
+                    <td><span class="${marginClass} fw-bold">${parseFloat(product.profit_margin_percent || 0).toFixed(1)}%</span></td>
                 `;
             });
         }
@@ -276,10 +326,33 @@
             customizations.forEach((item, index) => {
                 const row = tbody.insertRow();
                 row.innerHTML = `
-                    <td>${index + 1}</td>
+                    <td><strong>${index + 1}</strong></td>
                     <td>${item.item_name}</td>
                     <td>${formatNumber(item.times_added)}</td>
                     <td>${formatCurrency(item.revenue_generated)}</td>
+                `;
+            });
+        }
+
+        function updateLowMarginTable(products) {
+            const tbody = document.querySelector('#lowMarginTable tbody');
+            tbody.innerHTML = '';
+            
+            const filtered = products.filter(p => parseFloat(p.profit_margin_percent) < 30);
+            
+            if (filtered.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="3" class="text-center text-success">✓ Todos os produtos têm margem saudável</td></tr>';
+                return;
+            }
+            
+            filtered.slice(0, 10).forEach(product => {
+                const row = tbody.insertRow();
+                const marginClass = parseFloat(product.profit_margin_percent) < 20 ? 'text-danger' : 'text-warning';
+                
+                row.innerHTML = `
+                    <td>${product.product_name}</td>
+                    <td><span class="${marginClass} fw-bold">${parseFloat(product.profit_margin_percent).toFixed(1)}%</span></td>
+                    <td>${formatCurrency(product.total_revenue)}</td>
                 `;
             });
         }
@@ -288,10 +361,14 @@
             const exportData = productsData.map((p, i) => ({
                 'Posição': i + 1,
                 'Produto': p.product_name,
+                'Categoria': p.category_name || 'N/A',
                 'Quantidade': p.total_quantity,
-                'Faturamento': p.total_revenue
+                'Faturamento': p.total_revenue,
+                'Custo': p.total_cost,
+                'Lucro': p.total_profit,
+                'Margem %': parseFloat(p.profit_margin_percent || 0).toFixed(1)
             }));
-            downloadCSV(exportData, 'top_produtos');
+            downloadCSV(exportData, 'produtos_com_margem');
         });
 
         document.getElementById('exportCustomizations')?.addEventListener('click', () => {
@@ -304,9 +381,12 @@
             downloadCSV(exportData, 'top_customizacoes');
         });
 
+        document.getElementById('exportPagePDF')?.addEventListener('click', () => {
+            pdfExport.exportDashboardToPDF('Analise_de_Produtos');
+        });
+
         document.addEventListener('filtersApplied', loadProductsAnalysis);
 
-        // Initialize
         filters.init().then(() => loadProductsAnalysis());
     </script>
 </body>

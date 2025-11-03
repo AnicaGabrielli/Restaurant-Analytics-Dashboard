@@ -62,6 +62,37 @@ class ProductController {
       });
     }
   }
+
+  static async getLowMarginProducts(req, res) {
+    try {
+      const filters = req.query;
+      const limit = parseInt(req.query.limit) || 20;
+      const data = await Product.getLowMarginProducts(filters, limit);
+      
+      res.json({ success: true, data });
+    } catch (error) {
+      console.error('Low margin products error:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: 'Erro ao buscar produtos com baixa margem' 
+      });
+    }
+  }
+
+  static async getProductsByDayAndHour(req, res) {
+    try {
+      const filters = req.query;
+      const data = await Product.getProductsByDayAndHour(filters);
+      
+      res.json({ success: true, data });
+    } catch (error) {
+      console.error('Products by day and hour error:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: 'Erro ao buscar produtos por dia e horário' 
+      });
+    }
+  }
 }
 
 export default ProductController;

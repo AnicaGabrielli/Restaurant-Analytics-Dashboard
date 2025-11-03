@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Insights Acionáveis - Restaurant Analytics</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="../assets/css/styles.css">
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="index.html">
+                <i class="fas fa-utensils me-2"></i>Restaurant Analytics
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a class="nav-link" href="index.html"><i class="fas fa-chart-line me-1"></i> Dashboard</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="vendas.html"><i class="fas fa-shopping-cart me-1"></i> Vendas</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="produtos.html"><i class="fas fa-hamburger me-1"></i> Produtos</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="clientes.html"><i class="fas fa-users me-1"></i> Clientes</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="performance.html"><i class="fas fa-tachometer-alt me-1"></i> Performance</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="insights.html"><i class="fas fa-lightbulb me-1"></i> Insights</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-4">
+        <div class="row">
+            <div class="col-12">
+                <h2 class="mb-4"><i class="fas fa-lightbulb text-warning me-2"></i>Perguntas Respondidas</h2>
+            </div>
+        </div>
+
+        <!-- Pergunta 1: Qual produto vende mais na quinta à noite no iFood? -->
+        <div class="row g-3 mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header bg-warning text-dark">
+                        <h5 class="mb-0"><i class="fas fa-question-circle me-2"></i>Qual produto vende mais na quinta à noite no iFood?</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-3">
+                                <label class="form-label">Canal</label>
+                                <select class="form-select" id="channelQ1">
+                                    <option value="">Selecione...</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Dia da Semana</label>
+                                <select class="form-select" id="weekdayQ1">
+                                    <option value="">Todos</option>
+                                    <option value="1">Domingo</option>
+                                    <option value="2">Segunda</option>
+                                    <option value="3">Terça</option>
+                                    <option value="4">Quarta</option>
+                                    <option value="5">Quinta</option>
+                                    <option value="6">Sexta</option>
+                                    <option value="7">Sábado</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Horário</label>
+                                <select class="form-select" id="hourQ1">
+                                    <option value="">Todos</option>
+                                    ${Array.from({length: 24}, (_, i) => `<option value="${i}">${i}:00 - ${i}:59</option>`).join('')}
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <button class="btn btn-warning w-100 mt-4" id="searchQ1">
+                                    <i class="fas fa-search me-2"></i>Buscar
+                                </button>
+                            </div>
+                        </div>
+                        <div id="resultQ1"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pergunta 2: Meu ticket médio está caindo. É por canal ou por loja? -->
+        <div class="row g-3 mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header bg-danger text-white">
+                        <h5 class="mb-0"><i class="fas fa-question-circle me-2"></i>Meu ticket médio está caindo. É por canal ou por loja?</h5>
+                    </div>
+                    <div class="card-body">
+                        <button class="btn btn-danger mb-3" id="searchQ2">
+                            <i class="fas fa-search me-2"></i>Analisar Ticket Médio
+                        </button>
+                        <div id="resultQ2"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pergunta 3: Quais produtos têm menor margem e devo repensar o preço? -->
+        <div class="row g-3 mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header bg-warning text-dark">
+                        <h5 class="mb-0"><i class="fas fa-question-circle me-2"></i>Quais produtos têm menor margem e devo repensar o preço?</h5>
+                    </div>
+                    <div class="card-body">
+                        <button class="btn btn-warning mb-3" id="searchQ3">
+                            <i class="fas fa-search me-2"></i>Buscar Produtos com Baixa Margem
+                        </button>
+                        <div id="resultQ3"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pergunta 4: Meu tempo de entrega piorou. Em quais dias/horários? -->
+        <div class="row g-3 mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header bg-danger text-white">
+                        <h5 class="mb-0"><i class="fas fa-question-circle me-2"></i>Meu tempo de entrega piorou. Em quais dias/horários?</h5>
+                    </div>
+                    <div class="card-body">
+                        <button class="btn btn-danger mb-3" id="searchQ4">
+                            <i class="fas fa-search me-2"></i>Analisar Tempos de Entrega
+                        </button>
+                        <div id="resultQ4"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pergunta 5: Quais clientes compraram 3+ vezes mas não voltam há 30 dias? -->
+        <div class="row g-3 mb-5">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header bg-warning text-dark">
+                        <h5 class="mb-0"><i class="fas fa-question-circle me-2"></i>Quais clientes compraram 3+ vezes mas não voltam há 30 dias?</h5>
+                    </div>
+                    <div class="card-body">
+                        <button class="btn btn-warning mb-3" id="searchQ5">
+                            <i class="fas fa-search me-2"></i>Buscar Clientes em Churn
+                        </button>
+                        <div id="resultQ5"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script type="module">
+        import ApiService from '../assets/js/services/ApiService.js';
+        import { formatCurrency, formatNumber, getDateRange } from '../assets/js/utils/helpers.js';
+
+        // Carregar canais para Q1
+        async function loadChannels() {
+            const res = await ApiService.getChannels();
+            if (res.success) {
+                const select = document.getElementById('channelQ1');
+                res.data.forEach(ch => {
+                    const option = document.createElement('option');
+                    option.value = ch.id;
+                    option.textContent = ch.name;
+                    select.appendChild(option);
+                });
+            }
+        }
+
+        // Q1: Produto por canal/dia/hora
+        document.getElementById('searchQ1').addEventListener('click', async () => {
+            const channelId = document.getElementById('channelQ1').value;
+            const weekday = document.getElementById('weekdayQ1').value;
+            const hour = document.getElementById('hourQ1').value;
+
+            if (!channelId || !weekday || !hour) {
+                alert('Por favor, selecione canal, dia da semana e horário');
+                return;
+            }
+
+            const dates = getDateRange(30);
+            const res = await ApiService.getProductByChannelDayHour({
+                channelId,
+                weekday,
+                hour,
+                startDate: dates.startDate,
+                endDate: dates.endDate
+            });
+
+            const resultDiv = document.getElementById('resultQ1');
+            if (res.success && res.data.length > 0) {
+                const top5 = res.data.slice(0, 5);
+                resultDiv.innerHTML = `
+                    <div class="alert alert-success">
+                        <h6><i class="fas fa-check-circle me-2"></i>${res.insight}</h6>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead><tr><th>Produto</th><th>Vezes Vendido</th><th>Quantidade</th><th>Faturamento</th></tr></thead>
+                            <tbody>
+                                ${top5.map(p => `
+                                    <tr>
+                                        <td><strong>${p.product_name}</strong></td>
+                                        <td>${formatNumber(p.times_sold)}</td>
+                                        <td>${formatNumber(p.total_quantity)}</td>
+                                        <td>${formatCurrency(p.total_revenue)}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            } else {
+                resultDiv.innerHTML = '<div class="alert alert-info">Nenhum dado encontrado para os filtros selecionados</div>';
+            }
+        });
+
+        // Q2: Ticket médio caindo
+        document.getElementById('searchQ2').addEventListener('click', async () => {
+            const dates = getDateRange(30);
+            const res = await ApiService.getTicketTrendAnalysis({
+                startDate: dates.startDate,
+                endDate: dates.endDate
+            });
+
+            const resultDiv = document.getElementById('resultQ2');
+            if (res.success) {
+                resultDiv.innerHTML = `
+                    <div class="alert alert-info">
+                        <h6><i class="fas fa-info-circle me-2"></i>${res.insight}</h6>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Lojas com Menor Ticket</h6>
+                            <ul class="list-group">
+                                ${res.data.lowPerformingStores.slice(0, 5).map(s => `
+                                    <li class="list-group-item d-flex justify-content-between">
+                                        <span>${s.name}</span>
+                                        <strong>${formatCurrency(s.avg_ticket)}</strong>
+                                    </li>
+                                `).join('')}
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Canais com Menor Ticket</h6>
+                            <ul class="list-group">
+                                ${res.data.lowPerformingChannels.slice(0, 5).map(c => `
+                                    <li class="list-group-item d-flex justify-content-between">
+                                        <span>${c.name}</span>
+                                        <strong>${formatCurrency(c.avg_ticket)}</strong>
+                                    </li>
+                                `).join('')}
+                            </ul>
+                        </div>
+                    </div>
+                `;
+            }
+        });
+
+        // Q3: Produtos com baixa margem
+        document.getElementById('searchQ3').addEventListener('click', async () => {
+            const dates = getDateRange(30);
+            const res = await ApiService.getLowMarginInsights({
+                startDate: dates.startDate,
+                endDate: dates.endDate,
+                limit: 20
+            });
+
+            const resultDiv = document.getElementById('resultQ3');
+            if (res.success && res.data.length > 0) {
+                resultDiv.innerHTML = `
+                    <div class="alert alert-warning">
+                        <h6><i class="fas fa-exclamation-triangle me-2"></i>${res.insight}</h6>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead><tr><th>Produto</th><th>Categoria</th><th>Margem %</th><th>Faturamento</th><th>Custo</th><th>Lucro</th></tr></thead>
+                            <tbody>
+                                ${res.data.slice(0, 10).map(p => {
+                                    const marginClass = parseFloat(p.profit_margin_percent) < 20 ? 'text-danger' : 'text-warning';
+                                    return `
+                                        <tr>
+                                            <td><strong>${p.product_name}</strong></td>
+                                            <td>${p.category_name || 'N/A'}</td>
+                                            <td><span class="${marginClass} fw-bold">${parseFloat(p.profit_margin_percent).toFixed(1)}%</span></td>
+                                            <td>${formatCurrency(p.total_revenue)}</td>
+                                            <td>${formatCurrency(p.total_cost)}</td>
+                                            <td>${formatCurrency(p.total_profit)}</td>
+                                        </tr>
+                                    `;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            } else {
+                resultDiv.innerHTML = '<div class="alert alert-success">Todos os produtos têm margem saudável!</div>';
+            }
+        });
+
+        // Q4: Tempo de entrega piorou
+        document.getElementById('searchQ4').addEventListener('click', async () => {
+            const dates = getDateRange(30);
+            const res = await ApiService.getDeliveryDegradation({
+                startDate: dates.startDate,
+                endDate: dates.endDate
+            });
+
+            const resultDiv = document.getElementById('resultQ4');
+            if (res.success) {
+                const weekdays = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+                resultDiv.innerHTML = `
+                    <div class="alert alert-warning">
+                        <h6><i class="fas fa-clock me-2"></i>${res.insight}</h6>
+                        <p class="mb-0">Tempo médio geral: <strong>${parseFloat(res.overallAvg).toFixed(1)} minutos</strong></p>
+                    </div>
+                    ${res.problematicPeriods.length > 0 ? `
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead><tr><th>Dia</th><th>Horário</th><th>Entregas</th><th>Tempo Médio</th><th>Degradação</th></tr></thead>
+                                <tbody>
+                                    ${res.problematicPeriods.map(p => `
+                                        <tr>
+                                            <td>${weekdays[p.weekday - 1]}</td>
+                                            <td>${p.hour}:00 - ${p.hour}:59</td>
+                                            <td>${formatNumber(p.delivery_count)}</td>
+                                            <td><span class="badge bg-danger">${parseFloat(p.avg_delivery_minutes).toFixed(1)} min</span></td>
+                                            <td><span class="badge bg-warning">+${p.degradation}%</span></td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    ` : '<div class="alert alert-success">Nenhum período problemático encontrado!</div>'}
+                `;
+            }
+        });
+
+        // Q5: Clientes em churn
+        document.getElementById('searchQ5').addEventListener('click', async () => {
+            const dates = getDateRange(90);
+            const res = await ApiService.getChurnRisk({
+                startDate: dates.startDate,
+                endDate: dates.endDate
+            });
+
+            const resultDiv = document.getElementById('resultQ5');
+            if (res.success && res.data.length > 0) {
+                resultDiv.innerHTML = `
+                    <div class="alert alert-danger">
+                        <h6><i class="fas fa-exclamation-triangle me-2"></i>${res.data.length} clientes em risco de churn</h6>
+                        <p class="mb-0">Ação recomendada: Criar campanha de reativação com desconto especial</p>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead><tr><th>Cliente</th><th>Email</th><th>Pedidos</th><th>Total Gasto</th><th>Última Compra</th><th>Dias Inativo</th></tr></thead>
+                            <tbody>
+                                ${res.data.slice(0, 20).map(c => `
+                                    <tr>
+                                        <td><strong>${c.customer_name || 'Cliente ' + c.customer_id}</strong></td>
+                                        <td>${c.email || 'N/A'}</td>
+                                        <td>${formatNumber(c.total_orders)}</td>
+                                        <td>${formatCurrency(c.total_spent)}</td>
+                                        <td>${new Date(c.last_order_date).toLocaleDateString('pt-BR')}</td>
+                                        <td><span class="badge bg-danger">${c.days_since_last_order} dias</span></td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            } else {
+                resultDiv.innerHTML = '<div class="alert alert-success">Nenhum cliente em risco de churn!</div>';
+            }
+        });
+
+        // Initialize
+        loadChannels();
+    </script>
+</body>
+</html>

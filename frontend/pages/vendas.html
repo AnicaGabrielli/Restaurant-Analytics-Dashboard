@@ -13,8 +13,7 @@
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
         <div class="container-fluid">
             <a class="navbar-brand" href="index.html">
-                <i class="fas fa-utensils me-2"></i>
-                Restaurant Analytics
+                <i class="fas fa-utensils me-2"></i>Restaurant Analytics
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
@@ -22,24 +21,22 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav">
                     <li class="nav-item">
-                        <a class="nav-link" href="index.html">
-                            <i class="fas fa-chart-line me-1"></i> Dashboard
-                        </a>
+                        <a class="nav-link" href="index.html"><i class="fas fa-chart-line me-1"></i> Dashboard</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link active" href="vendas.html">
-                            <i class="fas fa-shopping-cart me-1"></i> Vendas
-                        </a>
+                        <a class="nav-link active" href="vendas.html"><i class="fas fa-shopping-cart me-1"></i> Vendas</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="produtos.html">
-                            <i class="fas fa-hamburger me-1"></i> Produtos
-                        </a>
+                        <a class="nav-link" href="produtos.html"><i class="fas fa-hamburger me-1"></i> Produtos</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="comparativo.html">
-                            <i class="fas fa-balance-scale me-1"></i> Comparativo
-                        </a>
+                        <a class="nav-link" href="clientes.html"><i class="fas fa-users me-1"></i> Clientes</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="performance.html"><i class="fas fa-tachometer-alt me-1"></i> Performance</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="insights.html"><i class="fas fa-lightbulb me-1"></i> Insights</a>
                     </li>
                 </ul>
             </div>
@@ -88,9 +85,14 @@
                             <option value="month">Mês</option>
                         </select>
                     </div>
-                    <div class="col-md-2">
+                    <div class="col-md-1">
                         <button class="btn btn-primary w-100 mt-4" id="applyFilters">
-                            <i class="fas fa-search me-2"></i>Aplicar
+                            <i class="fas fa-search"></i>
+                        </button>
+                    </div>
+                    <div class="col-md-1">
+                        <button class="btn btn-success w-100 mt-4" id="exportPagePDF">
+                            <i class="fas fa-file-pdf"></i>
                         </button>
                     </div>
                 </div>
@@ -145,6 +147,7 @@
                                         <th>Cidade</th>
                                         <th>Vendas</th>
                                         <th>Faturamento</th>
+                                        <th>Taxa Conclusão</th>
                                     </tr>
                                 </thead>
                                 <tbody></tbody>
@@ -171,6 +174,7 @@
                                         <th>Vendas</th>
                                         <th>Faturamento</th>
                                         <th>Ticket Médio</th>
+                                        <th>Taxa Conclusão</th>
                                     </tr>
                                 </thead>
                                 <tbody></tbody>
@@ -184,14 +188,18 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script type="module">
         import ApiService from '../assets/js/services/ApiService.js';
         import { Filters } from '../assets/js/components/Filters.js';
         import { Charts } from '../assets/js/components/Charts.js';
+        import { PDFExport } from '../assets/js/components/PDFExport.js';
         import { formatCurrency, formatNumber, downloadCSV } from '../assets/js/utils/helpers.js';
 
         const filters = new Filters();
         const charts = new Charts();
+        const pdfExport = new PDFExport();
         let storesData = [];
         let channelsData = [];
 
@@ -235,12 +243,16 @@
             
             stores.forEach((store, index) => {
                 const row = tbody.insertRow();
+                const rateClass = parseFloat(store.completion_rate) >= 90 ? 'bg-success' : 
+                                 parseFloat(store.completion_rate) >= 80 ? 'bg-warning' : 'bg-danger';
+                
                 row.innerHTML = `
-                    <td>${index + 1}</td>
+                    <td><strong>${index + 1}</strong></td>
                     <td>${store.store_name}</td>
                     <td>${store.city}</td>
                     <td>${formatNumber(store.sales_count)}</td>
                     <td>${formatCurrency(store.revenue)}</td>
+                    <td><span class="badge ${rateClass}">${parseFloat(store.completion_rate).toFixed(1)}%</span></td>
                 `;
             });
         }
@@ -251,12 +263,15 @@
             
             channels.forEach((channel, index) => {
                 const row = tbody.insertRow();
+                const rateClass = parseFloat(channel.completion_rate) >= 90 ? 'bg-success' : 'bg-warning';
+                
                 row.innerHTML = `
-                    <td>${index + 1}</td>
+                    <td><strong>${index + 1}</strong></td>
                     <td>${channel.channel_name}</td>
                     <td>${formatNumber(channel.sales_count)}</td>
                     <td>${formatCurrency(channel.revenue)}</td>
                     <td>${formatCurrency(channel.avg_ticket)}</td>
+                    <td><span class="badge ${rateClass}">${parseFloat(channel.completion_rate).toFixed(1)}%</span></td>
                 `;
             });
         }
@@ -267,7 +282,8 @@
                 'Loja': s.store_name,
                 'Cidade': s.city,
                 'Vendas': s.sales_count,
-                'Faturamento': s.revenue
+                'Faturamento': s.revenue,
+                'Taxa Conclusão': parseFloat(s.completion_rate).toFixed(1) + '%'
             }));
             downloadCSV(exportData, 'ranking_lojas');
         });
@@ -278,14 +294,18 @@
                 'Canal': c.channel_name,
                 'Vendas': c.sales_count,
                 'Faturamento': c.revenue,
-                'Ticket Médio': c.avg_ticket
+                'Ticket Médio': c.avg_ticket,
+                'Taxa Conclusão': parseFloat(c.completion_rate).toFixed(1) + '%'
             }));
             downloadCSV(exportData, 'ranking_canais');
         });
 
+        document.getElementById('exportPagePDF')?.addEventListener('click', () => {
+            pdfExport.exportDashboardToPDF('Analise_de_Vendas');
+        });
+
         document.addEventListener('filtersApplied', loadSalesAnalysis);
 
-        // Initialize
         filters.init().then(() => loadSalesAnalysis());
     </script>
 </body>

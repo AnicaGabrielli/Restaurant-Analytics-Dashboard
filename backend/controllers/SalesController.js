@@ -11,7 +11,8 @@ class SalesController {
       console.error('Sales by period error:', error);
       res.status(500).json({ 
         success: false, 
-        error: 'Erro ao buscar vendas por período' 
+        error: 'Erro ao buscar vendas por período',
+        details: error.message 
       });
     }
   }
@@ -26,7 +27,8 @@ class SalesController {
       console.error('Sales by channel error:', error);
       res.status(500).json({ 
         success: false, 
-        error: 'Erro ao buscar vendas por canal' 
+        error: 'Erro ao buscar vendas por canal',
+        details: error.message 
       });
     }
   }
@@ -41,7 +43,8 @@ class SalesController {
       console.error('Sales by store error:', error);
       res.status(500).json({ 
         success: false, 
-        error: 'Erro ao buscar vendas por loja' 
+        error: 'Erro ao buscar vendas por loja',
+        details: error.message 
       });
     }
   }
@@ -56,7 +59,8 @@ class SalesController {
       console.error('Hourly distribution error:', error);
       res.status(500).json({ 
         success: false, 
-        error: 'Erro ao buscar distribuição horária' 
+        error: 'Erro ao buscar distribuição horária',
+        details: error.message 
       });
     }
   }
@@ -71,7 +75,8 @@ class SalesController {
       console.error('Weekday distribution error:', error);
       res.status(500).json({ 
         success: false, 
-        error: 'Erro ao buscar distribuição semanal' 
+        error: 'Erro ao buscar distribuição semanal',
+        details: error.message 
       });
     }
   }
@@ -86,7 +91,8 @@ class SalesController {
       console.error('Delivery performance error:', error);
       res.status(500).json({ 
         success: false, 
-        error: 'Erro ao buscar performance de entrega' 
+        error: 'Erro ao buscar performance de entrega',
+        details: error.message 
       });
     }
   }

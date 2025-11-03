@@ -1,7 +1,8 @@
 import { Parser } from 'json2csv';
 
 class ExportController {
-  static async exportData(req, res) {
+  // Exportar dados como CSV
+  static async exportCSV(req, res) {
     try {
       const { data, filename } = req.body;
       
@@ -19,10 +20,37 @@ class ExportController {
       res.setHeader('Content-Disposition', `attachment; filename="${filename || 'export'}.csv"`);
       res.send('\ufeff' + csv);
     } catch (error) {
-      console.error('Export error:', error);
+      console.error('Export CSV error:', error);
       res.status(500).json({ 
         success: false, 
-        error: 'Erro ao exportar dados' 
+        error: 'Erro ao exportar CSV' 
+      });
+    }
+  }
+
+  // Endpoint para receber dados HTML do PDF gerado no frontend
+  static async exportPDF(req, res) {
+    try {
+      const { title, content } = req.body;
+      
+      if (!content) {
+        return res.status(400).json({ 
+          success: false, 
+          error: 'Conteúdo inválido para exportação PDF' 
+        });
+      }
+
+      // O PDF será gerado no frontend usando jsPDF
+      // Este endpoint serve apenas para validação ou log
+      res.json({ 
+        success: true,
+        message: 'PDF preparado para download'
+      });
+    } catch (error) {
+      console.error('Export PDF error:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: 'Erro ao preparar PDF' 
       });
     }
   }
