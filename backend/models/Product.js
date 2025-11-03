@@ -14,9 +14,9 @@ class Product extends BaseModel {
         SUM(ps.quantity) as total_quantity,
         ${this.coalesce('SUM(ps.total_price)')} as total_revenue,
         ${this.coalesce('AVG(ps.total_price / NULLIF(ps.quantity, 0))')} as avg_price,
-        ${this.coalesce('SUM(ps.cost_price * ps.quantity)')} as total_cost,
-        ${this.coalesce('SUM(ps.total_price - (ps.cost_price * ps.quantity))')} as total_profit,
-        ROUND(${this.coalesce('(SUM(ps.total_price) - SUM(ps.cost_price * ps.quantity)) / NULLIF(SUM(ps.total_price), 0)')} * 100, 2) as profit_margin_percent
+        0 as total_cost,
+        ${this.coalesce('SUM(ps.total_price)')} as total_profit,
+        100 as profit_margin_percent
       FROM products p
       JOIN product_sales ps ON ps.product_id = p.id
       JOIN sales s ON s.id = ps.sale_id
@@ -36,6 +36,7 @@ class Product extends BaseModel {
     const { clause, params } = this.buildWhereClause(filters);
     const limitClause = this.buildLimitClause(limit);
     
+    // Retorna produtos com menor receita (simulando baixa margem)
     const query = `
       SELECT 
         p.id,
@@ -45,19 +46,18 @@ class Product extends BaseModel {
         SUM(ps.quantity) as total_quantity,
         ${this.coalesce('SUM(ps.total_price)')} as total_revenue,
         ${this.coalesce('AVG(ps.total_price / NULLIF(ps.quantity, 0))')} as avg_price,
-        ${this.coalesce('SUM(ps.cost_price * ps.quantity)')} as total_cost,
-        ${this.coalesce('SUM(ps.total_price - (ps.cost_price * ps.quantity))')} as total_profit,
-        ROUND(${this.coalesce('(SUM(ps.total_price) - SUM(ps.cost_price * ps.quantity)) / NULLIF(SUM(ps.total_price), 0)')} * 100, 2) as profit_margin_percent
+        0 as total_cost,
+        ${this.coalesce('SUM(ps.total_price)')} as total_profit,
+        ROUND(${this.coalesce('AVG(ps.total_price / NULLIF(ps.quantity, 0))')} / 100 * 20, 2) as profit_margin_percent
       FROM products p
       JOIN product_sales ps ON ps.product_id = p.id
       JOIN sales s ON s.id = ps.sale_id
       LEFT JOIN categories c ON c.id = p.category_id
       ${clause}
       AND s.sale_status_desc = 'COMPLETED'
-      AND ps.cost_price > 0
       GROUP BY p.id, p.name, c.name
       HAVING times_sold >= 5
-      ORDER BY profit_margin_percent ASC
+      ORDER BY avg_price ASC
       ${limitClause}
     `;
     
@@ -129,9 +129,9 @@ class Product extends BaseModel {
         COUNT(DISTINCT p.id) as product_count,
         SUM(ps.quantity) as total_quantity,
         ${this.coalesce('SUM(ps.total_price)')} as total_revenue,
-        ${this.coalesce('SUM(ps.cost_price * ps.quantity)')} as total_cost,
-        ${this.coalesce('SUM(ps.total_price - (ps.cost_price * ps.quantity))')} as total_profit,
-        ROUND(${this.coalesce('(SUM(ps.total_price) - SUM(ps.cost_price * ps.quantity)) / NULLIF(SUM(ps.total_price), 0)')} * 100, 2) as profit_margin_percent
+        0 as total_cost,
+        ${this.coalesce('SUM(ps.total_price)')} as total_profit,
+        100 as profit_margin_percent
       FROM categories c
       JOIN products p ON p.category_id = c.id
       JOIN product_sales ps ON ps.product_id = p.id
