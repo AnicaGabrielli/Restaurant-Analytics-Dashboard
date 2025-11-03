@@ -93,6 +93,16 @@
         </div>
     </div>
 
+    <!-- Loading -->
+    <div class="container-fluid mt-4" id="loadingIndicator" style="display:none;">
+        <div class="alert alert-info text-center">
+            <div class="spinner-border text-primary me-2" role="status">
+                <span class="visually-hidden">Carregando...</span>
+            </div>
+            Carregando dados...
+        </div>
+    </div>
+
     <!-- LTV por Segmento -->
     <div class="container-fluid mt-4">
         <div class="row g-3">
@@ -215,6 +225,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script type="module">
+        // CORREÇÃO: Caminho correto para os imports
         import ApiService from '../assets/js/services/ApiService.js';
         import { Filters } from '../assets/js/components/Filters.js';
         import { Charts } from '../assets/js/components/Charts.js';
@@ -229,34 +240,55 @@
         let topCustomersData = [];
         let ltvData = [];
 
+        function showLoading(show = true) {
+            const loading = document.getElementById('loadingIndicator');
+            if (loading) {
+                loading.style.display = show ? 'block' : 'none';
+            }
+        }
+
         async function loadCustomerAnalysis() {
-            const currentFilters = filters.getFilters();
+            try {
+                showLoading(true);
+                const currentFilters = filters.getFilters();
 
-            const [churnRes, topRes, ltvRes, frequencyRes] = await Promise.all([
-                ApiService.getChurnRisk(currentFilters),
-                ApiService.getTopCustomers({ ...currentFilters, limit: 20 }),
-                ApiService.getLTVBySegment(currentFilters),
-                ApiService.getPurchaseFrequency(currentFilters)
-            ]);
+                console.log('Carregando dados de clientes com filtros:', currentFilters);
 
-            if (churnRes.success) {
-                churnData = churnRes.data;
-                updateChurnTable(churnData);
-            }
+                const [churnRes, topRes, ltvRes, frequencyRes] = await Promise.all([
+                    ApiService.getChurnRisk(currentFilters),
+                    ApiService.getTopCustomers({ ...currentFilters, limit: 20 }),
+                    ApiService.getLTVBySegment(currentFilters),
+                    ApiService.getPurchaseFrequency(currentFilters)
+                ]);
 
-            if (topRes.success) {
-                topCustomersData = topRes.data;
-                updateTopCustomersTable(topCustomersData);
-            }
+                console.log('Resposta churn:', churnRes);
+                console.log('Resposta top customers:', topRes);
 
-            if (ltvRes.success) {
-                ltvData = ltvRes.data;
-                createLTVChart(ltvData);
-                updateRFMTable(ltvData);
-            }
+                if (churnRes.success) {
+                    churnData = churnRes.data;
+                    updateChurnTable(churnData);
+                }
 
-            if (frequencyRes.success) {
-                createFrequencyChart(frequencyRes.data);
+                if (topRes.success) {
+                    topCustomersData = topRes.data;
+                    updateTopCustomersTable(topCustomersData);
+                }
+
+                if (ltvRes.success) {
+                    ltvData = ltvRes.data;
+                    createLTVChart(ltvData);
+                    updateRFMTable(ltvData);
+                }
+
+                if (frequencyRes.success) {
+                    createFrequencyChart(frequencyRes.data);
+                }
+
+                showLoading(false);
+            } catch (error) {
+                console.error('Erro ao carregar análise de clientes:', error);
+                showLoading(false);
+                alert('Erro ao carregar dados: ' + error.message);
             }
         }
 
@@ -328,8 +360,8 @@
             data.forEach(customer => {
                 const row = tbody.insertRow();
                 row.innerHTML = `
-                    <td>${customer.customer_name || 'Cliente ' + customer.customer_id}</td>
-                    <td>${customer.email || 'N/A'}</td>
+                    <td>Cliente #${customer.customer_id}</td>
+                    <td>-</td>
                     <td>${formatNumber(customer.total_orders)}</td>
                     <td>${formatCurrency(customer.total_spent)}</td>
                     <td>${new Date(customer.last_order_date).toLocaleDateString('pt-BR')}</td>
@@ -343,11 +375,16 @@
             const tbody = document.querySelector('#topCustomersTable tbody');
             tbody.innerHTML = '';
             
+            if (!data || data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center">Nenhum cliente encontrado</td></tr>';
+                return;
+            }
+            
             data.forEach((customer, index) => {
                 const row = tbody.insertRow();
                 row.innerHTML = `
                     <td>${index + 1}</td>
-                    <td>${customer.customer_name || 'Cliente ' + customer.customer_id}</td>
+                    <td>Cliente #${customer.customer_id}</td>
                     <td>${formatNumber(customer.total_orders)}</td>
                     <td>${formatCurrency(customer.total_revenue)}</td>
                     <td>${formatCurrency(customer.avg_ticket)}</td>
@@ -358,6 +395,11 @@
         function updateRFMTable(data) {
             const tbody = document.querySelector('#rfmTable tbody');
             tbody.innerHTML = '';
+            
+            if (!data || data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" class="text-center">Nenhum dado encontrado</td></tr>';
+                return;
+            }
             
             data.forEach(segment => {
                 const row = tbody.insertRow();
@@ -412,7 +454,14 @@
         document.addEventListener('filtersApplied', loadCustomerAnalysis);
 
         // Initialize
-        filters.init().then(() => loadCustomerAnalysis());
+        console.log('Inicializando página de clientes...');
+        filters.init().then(() => {
+            console.log('Filtros inicializados, carregando dados...');
+            loadCustomerAnalysis();
+        }).catch(error => {
+            console.error('Erro ao inicializar filtros:', error);
+            showLoading(false);
+        });
     </script>
 </body>
 </html>

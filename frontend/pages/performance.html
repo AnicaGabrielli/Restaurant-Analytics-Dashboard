@@ -92,6 +92,16 @@
         </div>
     </div>
 
+    <!-- Loading -->
+    <div class="container-fluid mt-4" id="loadingIndicator" style="display:none;">
+        <div class="alert alert-info text-center">
+            <div class="spinner-border text-primary me-2" role="status">
+                <span class="visually-hidden">Carregando...</span>
+            </div>
+            Carregando dados...
+        </div>
+    </div>
+
     <!-- Charts -->
     <div class="container-fluid mt-4">
         <div class="row g-3">
@@ -217,6 +227,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script type="module">
+        // CORREÇÃO: Caminho correto para os imports
         import ApiService from '../assets/js/services/ApiService.js';
         import { Filters } from '../assets/js/components/Filters.js';
         import { Charts } from '../assets/js/components/Charts.js';
@@ -231,34 +242,55 @@
         let channelPerfData = [];
         let deliveryRegionData = [];
 
+        function showLoading(show = true) {
+            const loading = document.getElementById('loadingIndicator');
+            if (loading) {
+                loading.style.display = show ? 'block' : 'none';
+            }
+        }
+
         async function loadPerformanceAnalysis() {
-            const currentFilters = filters.getFilters();
+            try {
+                showLoading(true);
+                const currentFilters = filters.getFilters();
 
-            const [storeEffRes, channelPerfRes, peakHoursRes, deliveryRegionRes] = await Promise.all([
-                ApiService.getStoreEfficiency(currentFilters),
-                ApiService.getChannelPerformance(currentFilters),
-                ApiService.getPeakHours(currentFilters),
-                ApiService.getDeliveryByRegion(currentFilters)
-            ]);
+                console.log('Carregando dados de performance com filtros:', currentFilters);
 
-            if (storeEffRes.success) {
-                storeEffData = storeEffRes.data;
-                updateStoreEfficiencyTable(storeEffData);
-            }
+                const [storeEffRes, channelPerfRes, peakHoursRes, deliveryRegionRes] = await Promise.all([
+                    ApiService.getStoreEfficiency(currentFilters),
+                    ApiService.getChannelPerformance(currentFilters),
+                    ApiService.getPeakHours(currentFilters),
+                    ApiService.getDeliveryByRegion(currentFilters)
+                ]);
 
-            if (channelPerfRes.success) {
-                channelPerfData = channelPerfRes.data;
-                updateChannelPerfTable(channelPerfData);
-            }
+                console.log('Resposta store efficiency:', storeEffRes);
+                console.log('Resposta channel performance:', channelPerfRes);
 
-            if (peakHoursRes.success) {
-                createPeakHoursChart(peakHoursRes.data);
-                createDeliveryTimeChart(peakHoursRes.data);
-            }
+                if (storeEffRes.success) {
+                    storeEffData = storeEffRes.data;
+                    updateStoreEfficiencyTable(storeEffData);
+                }
 
-            if (deliveryRegionRes.success) {
-                deliveryRegionData = deliveryRegionRes.data;
-                updateDeliveryRegionTable(deliveryRegionData);
+                if (channelPerfRes.success) {
+                    channelPerfData = channelPerfRes.data;
+                    updateChannelPerfTable(channelPerfData);
+                }
+
+                if (peakHoursRes.success) {
+                    createPeakHoursChart(peakHoursRes.data);
+                    createDeliveryTimeChart(peakHoursRes.data);
+                }
+
+                if (deliveryRegionRes.success) {
+                    deliveryRegionData = deliveryRegionRes.data;
+                    updateDeliveryRegionTable(deliveryRegionData);
+                }
+
+                showLoading(false);
+            } catch (error) {
+                console.error('Erro ao carregar análise de performance:', error);
+                showLoading(false);
+                alert('Erro ao carregar dados: ' + error.message);
             }
         }
 
@@ -333,6 +365,11 @@
             const tbody = document.querySelector('#storeEfficiencyTable tbody');
             tbody.innerHTML = '';
             
+            if (!data || data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" class="text-center">Nenhum dado encontrado</td></tr>';
+                return;
+            }
+            
             data.forEach(store => {
                 const row = tbody.insertRow();
                 const completionClass = parseFloat(store.completion_rate) >= 90 ? 'bg-success' : parseFloat(store.completion_rate) >= 80 ? 'bg-warning' : 'bg-danger';
@@ -354,6 +391,11 @@
             const tbody = document.querySelector('#channelPerfTable tbody');
             tbody.innerHTML = '';
             
+            if (!data || data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center">Nenhum dado encontrado</td></tr>';
+                return;
+            }
+            
             data.forEach(channel => {
                 const row = tbody.insertRow();
                 row.innerHTML = `
@@ -370,6 +412,11 @@
         function updateDeliveryRegionTable(data) {
             const tbody = document.querySelector('#deliveryRegionTable tbody');
             tbody.innerHTML = '';
+            
+            if (!data || data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center">Nenhum dado encontrado</td></tr>';
+                return;
+            }
             
             // Ordenar por pior tempo
             const sortedData = data.sort((a, b) => parseFloat(b.avg_delivery_minutes) - parseFloat(a.avg_delivery_minutes)).slice(0, 10);
@@ -431,7 +478,14 @@
         document.addEventListener('filtersApplied', loadPerformanceAnalysis);
 
         // Initialize
-        filters.init().then(() => loadPerformanceAnalysis());
+        console.log('Inicializando página de performance...');
+        filters.init().then(() => {
+            console.log('Filtros inicializados, carregando dados...');
+            loadPerformanceAnalysis();
+        }).catch(error => {
+            console.error('Erro ao inicializar filtros:', error);
+            showLoading(false);
+        });
     </script>
 </body>
 </html>

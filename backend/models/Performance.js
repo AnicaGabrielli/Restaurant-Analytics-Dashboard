@@ -106,10 +106,26 @@ class Performance {
     return rows;
   }
 
-  // Horários de pico
+  // Horários de pico - CORRIGIDO para evitar erro de GROUP BY
   static async getPeakHours(filters = {}) {
     const whereConditions = this.buildWhereClause(filters);
     
+    // Primeiro, calculamos a média de pedidos por hora
+    const avgQuery = `
+      SELECT AVG(hourly_count) as avg_hourly, AVG(hourly_count) * 1.5 as high_threshold
+      FROM (
+        SELECT HOUR(created_at) as h, COUNT(*) as hourly_count
+        FROM sales
+        ${whereConditions.clause}
+        GROUP BY h
+      ) as hourly_avg
+    `;
+    
+    const [avgResult] = await db.execute(avgQuery, whereConditions.params);
+    const avgHourly = avgResult[0]?.avg_hourly || 0;
+    const highThreshold = avgResult[0]?.high_threshold || 0;
+    
+    // Agora fazemos a query principal
     const query = `
       SELECT 
         HOUR(s.created_at) as hour,
@@ -117,27 +133,18 @@ class Performance {
         SUM(CASE WHEN s.sale_status_desc = 'COMPLETED' THEN s.total_amount ELSE 0 END) as revenue,
         AVG(CASE WHEN s.delivery_seconds IS NOT NULL AND s.sale_status_desc = 'COMPLETED' THEN s.delivery_seconds / 60.0 ELSE NULL END) as avg_delivery_time,
         CASE
-          WHEN COUNT(*) >= (SELECT AVG(hourly_count) * 1.5 FROM (
-            SELECT HOUR(created_at) as h, COUNT(*) as hourly_count
-            FROM sales
-            ${whereConditions.clause}
-            GROUP BY h
-          ) as hourly_avg) THEN 'Alto'
-          WHEN COUNT(*) >= (SELECT AVG(hourly_count) FROM (
-            SELECT HOUR(created_at) as h, COUNT(*) as hourly_count
-            FROM sales
-            ${whereConditions.clause}
-            GROUP BY h
-          ) as hourly_avg) THEN 'Médio'
+          WHEN COUNT(*) >= ? THEN 'Alto'
+          WHEN COUNT(*) >= ? THEN 'Médio'
           ELSE 'Baixo'
         END as volume_category
       FROM sales s
       ${whereConditions.clause}
-      GROUP BY hour
+      GROUP BY HOUR(s.created_at)
       ORDER BY hour
     `;
     
-    const [rows] = await db.execute(query, whereConditions.params);
+    const params = [...whereConditions.params, highThreshold, avgHourly];
+    const [rows] = await db.execute(query, params);
     return rows;
   }
 
@@ -145,29 +152,42 @@ class Performance {
   static async getCancellationAnalysis(filters = {}) {
     const whereConditions = this.buildWhereClause(filters);
     
+    // Primeiro pegamos o total de cancelamentos
+    const totalQuery = `
+      SELECT COUNT(*) as total
+      FROM sales
+      ${whereConditions.clause}
+      AND sale_status_desc = 'CANCELLED'
+    `;
+    
+    const [totalResult] = await db.execute(totalQuery, whereConditions.params);
+    const totalCancellations = totalResult[0]?.total || 1; // Evita divisão por zero
+    
     const query = `
       SELECT 
         s.cancellation_reason,
         COUNT(*) as cancellation_count,
-        ROUND(COUNT(*) * 100.0 / (SELECT COUNT(*) FROM sales WHERE sale_status_desc = 'CANCELLED' ${whereConditions.clause ? 'AND ' + whereConditions.clause.replace('WHERE', '') : ''}), 2) as percentage,
+        ROUND(COUNT(*) * 100.0 / ?, 2) as percentage,
         AVG(s.total_amount) as avg_order_value
       FROM sales s
       ${whereConditions.clause}
-      ${whereConditions.clause ? 'AND' : 'WHERE'} s.sale_status_desc = 'CANCELLED'
+      AND s.sale_status_desc = 'CANCELLED'
       AND s.cancellation_reason IS NOT NULL
       GROUP BY s.cancellation_reason
       ORDER BY cancellation_count DESC
     `;
     
-    const [rows] = await db.execute(query, whereConditions.params);
+    const params = [totalCancellations, ...whereConditions.params];
+    const [rows] = await db.execute(query, params);
     return rows;
   }
 
-  // Comparativo de performance (ticket médio por loja e canal)
+  // Comparativo de performance (ticket médio por loja e canal) - CORRIGIDO
   static async getTicketComparison(filters = {}) {
     const whereConditions = this.buildWhereClause(filters);
     
-    const query = `
+    // Dividir em duas queries separadas e depois unir no código
+    const storeQuery = `
       SELECT 
         'Loja' as type,
         st.name as name,
@@ -177,7 +197,9 @@ class Performance {
       JOIN stores st ON st.id = s.store_id
       ${whereConditions.clause}
       GROUP BY st.id, st.name
-      UNION ALL
+    `;
+    
+    const channelQuery = `
       SELECT 
         'Canal' as type,
         ch.name as name,
@@ -187,11 +209,23 @@ class Performance {
       JOIN channels ch ON ch.id = s.channel_id
       ${whereConditions.clause}
       GROUP BY ch.id, ch.name
-      ORDER BY type, avg_ticket DESC
     `;
     
-    const [rows] = await db.execute(query, whereConditions.params);
-    return rows;
+    const [storeRows] = await db.execute(storeQuery, whereConditions.params);
+    const [channelRows] = await db.execute(channelQuery, whereConditions.params);
+    
+    // Combinar resultados
+    const combinedRows = [...storeRows, ...channelRows];
+    
+    // Ordenar por tipo e depois por ticket médio
+    combinedRows.sort((a, b) => {
+      if (a.type !== b.type) {
+        return a.type.localeCompare(b.type);
+      }
+      return (b.avg_ticket || 0) - (a.avg_ticket || 0);
+    });
+    
+    return combinedRows;
   }
 
   // Capacidade operacional (pedidos por hora por loja)
@@ -213,7 +247,7 @@ class Performance {
       FROM sales s
       JOIN stores st ON st.id = s.store_id
       ${whereConditions.clause}
-      GROUP BY st.id, st.name, hour
+      GROUP BY st.id, st.name, HOUR(s.created_at)
       HAVING orders_per_hour > 0
       ORDER BY st.name, hour
     `;

@@ -7,9 +7,6 @@ class Customer extends BaseModel {
     const query = `
       SELECT 
         s.customer_id,
-        c.name as customer_name,
-        c.email,
-        c.phone,
         DATEDIFF(NOW(), MAX(s.created_at)) as recency_days,
         COUNT(DISTINCT s.id) as frequency,
         ${this.coalesce('SUM(CASE WHEN s.sale_status_desc = "COMPLETED" THEN s.total_amount ELSE 0 END)')} as monetary_value,
@@ -25,10 +22,9 @@ class Customer extends BaseModel {
           ELSE 'Novo'
         END as customer_segment
       FROM sales s
-      LEFT JOIN customers c ON c.id = s.customer_id
       ${clause}
       AND s.customer_id IS NOT NULL
-      GROUP BY s.customer_id, c.name, c.email, c.phone
+      GROUP BY s.customer_id
       HAVING frequency > 0
       ORDER BY monetary_value DESC
     `;
@@ -43,19 +39,15 @@ class Customer extends BaseModel {
     const query = `
       SELECT 
         s.customer_id,
-        c.name as customer_name,
-        c.email,
-        c.phone,
         COUNT(DISTINCT s.id) as total_orders,
         ${this.coalesce('SUM(CASE WHEN s.sale_status_desc = "COMPLETED" THEN s.total_amount ELSE 0 END)')} as total_spent,
         MAX(s.created_at) as last_order_date,
         DATEDIFF(NOW(), MAX(s.created_at)) as days_since_last_order,
         ${this.coalesce('AVG(CASE WHEN s.sale_status_desc = "COMPLETED" THEN s.total_amount ELSE NULL END)')} as avg_order_value
       FROM sales s
-      LEFT JOIN customers c ON c.id = s.customer_id
       ${clause}
       AND s.customer_id IS NOT NULL
-      GROUP BY s.customer_id, c.name, c.email, c.phone
+      GROUP BY s.customer_id
       HAVING total_orders >= 3 AND days_since_last_order >= 30
       ORDER BY total_spent DESC, days_since_last_order DESC
     `;
@@ -109,20 +101,16 @@ class Customer extends BaseModel {
     const query = `
       SELECT 
         s.customer_id,
-        c.name as customer_name,
-        c.email,
-        c.phone,
         COUNT(DISTINCT s.id) as total_orders,
         ${this.coalesce('SUM(CASE WHEN s.sale_status_desc = "COMPLETED" THEN s.total_amount ELSE 0 END)')} as total_revenue,
         ${this.coalesce('AVG(CASE WHEN s.sale_status_desc = "COMPLETED" THEN s.total_amount ELSE NULL END)')} as avg_ticket,
         MAX(s.created_at) as last_order,
         DATEDIFF(NOW(), MAX(s.created_at)) as days_since_last_order
       FROM sales s
-      LEFT JOIN customers c ON c.id = s.customer_id
       ${clause}
       AND s.customer_id IS NOT NULL
       AND s.sale_status_desc = 'COMPLETED'
-      GROUP BY s.customer_id, c.name, c.email, c.phone
+      GROUP BY s.customer_id
       ORDER BY total_revenue DESC
       ${limitClause}
     `;
